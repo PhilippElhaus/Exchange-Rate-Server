@@ -15,6 +15,7 @@ Auto-generates pairs based on the addition of new Currencies by manual input or 
 * Low Resource Usage
 
 To add a new Currency via a Websocket Client *CURRENCY.CURRENCY* to the Websocket Server.
+
 To request recorded rates of up to three hours, send *HISTORY.CURRENCY* to the WebSocket Server.
 
 <img src="1.PNG" width="350">
