@@ -14,8 +14,8 @@ Auto-generates pairs based on the addition of new Currencies by manual input or 
 * Access via Tray Icon
 * Low Resource Usage
 
-To add a new Currency via a Websocket Client *CURRENCY.CURRENCY* to the Websocket Server. e.g. `websocket.Send("CURRENCY.CHF")`.
-To request recorded rates of up to three hours, send *HISTORY.CURRENCY* to the WebSocket Server. e.g. `websocket.Send("HISTORY.CHF")`.
+To add a new Currency via a Websocket Client *CURRENCY.CURRENCY* to the Websocket Server.
+To request recorded rates of up to three hours, send *HISTORY.CURRENCY* to the WebSocket Server.
 
 <img src="1.PNG" width="350">
 <img src="2.PNG" width="350">
