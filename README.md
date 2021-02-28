@@ -20,7 +20,13 @@ To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HI
 <img src="1.png" width="350">
 <img src="2.png" width="350">
 
+## Setup via *config.txt* 
 
+      FIXERAPIKEY=yourapikey
+      CMCAPIKEY=yourapikey
+      WSSENDPOINT=/yourendpoint
+      REFERENCECURRENCY=EUR
+      PORT=222
 
 ## Start-Up Flags
 
@@ -29,14 +35,6 @@ Usage: **ExchangeRateServer.exe /flag**
 Flag _/log_: Log Tab & Log File.
 
 Flag _/markets_: Casts additional info on available markets.
-
-## Modify Settings by editing the *config.txt* with the following entries
-
-      FIXERAPIKEY=yourapikey
-      CMCAPIKEY=yourapikey
-      WSSENDPOINT=/yourendpoint
-      REFERENCECURRENCY=EUR
-      PORT=222
 
 ## Sample JSON Websocket Server Cast
 
