@@ -24,7 +24,7 @@ To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HI
 
 ## Start-Up Flags
 
-Usage **ExchangeRateServer.exe /flag**
+Usage: **ExchangeRateServer.exe /flag**
 
 Flag _/log_: Log Tab & Log File.
 
