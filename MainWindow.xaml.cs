@@ -47,11 +47,13 @@ namespace ExchangeRateServer
 
         private bool cmcQuery;
         private bool fixerQuery;
+        private bool justAdded;
 
         private bool online;
         private bool isCurrentlyUpdatingActivity;
         private object newCurrencyLock = new object();
         private object sendHistoryLock = new object();
+        private object currencyChangeLock = new object();
 
         private readonly System.Timers.Timer autoRefresh = new System.Timers.Timer(1000) { Enabled = true, AutoReset = true };
 
@@ -116,8 +118,6 @@ namespace ExchangeRateServer
                     MarketsLV.ItemsSource = BitfinexCOMMarkets;
                     CurrencyLV.ItemsSource = null;
                     CurrencyLV.ItemsSource = CurrenciesChange;
-
-                    ;
 
                     if (CountHistoricRate(out int count_short, out int count_long) == (0, 0))
                     {
@@ -184,14 +184,13 @@ namespace ExchangeRateServer
 
                 if (App.flag_markets)
                 {
-                    Dispatcher.Invoke(() =>  Tab_Markets.Visibility = Visibility.Visible);
-                   
+                    Dispatcher.Invoke(() => Tab_Markets.Visibility = Visibility.Visible);
+
                     Loop_Bitfinex_MarketInfo();
                 }
             });
 
             Loop_ExchangeRate();
-
         }
 
         private void InitFlags()
@@ -844,15 +843,18 @@ namespace ExchangeRateServer
 
                                 var entry = CurrenciesChange.Where(x => x.Currency == temp.Currency).SingleOrDefault();
 
-                                if (entry == default)
+                                lock (currencyChangeLock)
                                 {
-                                    CurrenciesChange.Add(temp);
-                                }
-                                else
-                                {
-                                    CurrenciesChange.Remove(entry);
+                                    if (entry == default)
+                                    {
+                                        CurrenciesChange.Add(temp);
+                                    }
+                                    else
+                                    {
+                                        CurrenciesChange.Remove(entry);
 
-                                    CurrenciesChange.Add(temp);
+                                        CurrenciesChange.Add(temp);
+                                    }
                                 }
                             }
 
@@ -1003,15 +1005,18 @@ namespace ExchangeRateServer
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            if (entry == default)
+                            lock (currencyChangeLock)
                             {
-                                CurrenciesChange.Add(temp);
-                            }
-                            else
-                            {
-                                CurrenciesChange.Remove(entry);
+                                if (entry == default)
+                                {
+                                    CurrenciesChange.Add(temp);
+                                }
+                                else
+                                {
+                                    CurrenciesChange.Remove(entry);
 
-                                CurrenciesChange.Add(temp);
+                                    CurrenciesChange.Add(temp);
+                                }
                             }
                         });
                     }
@@ -1401,7 +1406,7 @@ namespace ExchangeRateServer
                                 currencies = Currencies,
                                 currencies_change = CurrenciesChange?.ToList(),
                                 rates = Rates?.ToList(),
-                                markets = App.flag_markets ? new Dictionary<string, List<MarketInfo>>() { { "Bitfinex", BitfinexCOMMarkets?.ToList() }, { "BitcoinDE", BitcoinDEMarkets?.ToList() } } : null
+                                markets = !App.flag_markets ? null : new Dictionary<string, List<MarketInfo>>() { { "Bitfinex", BitfinexCOMMarkets?.ToList() }, { "BitcoinDE", BitcoinDEMarkets?.ToList() } }
                             }));
                         });
                     }
@@ -1525,8 +1530,18 @@ namespace ExchangeRateServer
                                 wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
                             }
 
-                            CMC_Query();
-                            Fixer_Query();
+                            Task.Run(async () =>
+                            {
+                                if (justAdded) return;
+                                else justAdded = true;
+
+                                await Task.Delay(5000);
+
+                                CMC_Query();
+                                Fixer_Query();
+
+                                justAdded = false;
+                            });
 
                             return;
                         }
