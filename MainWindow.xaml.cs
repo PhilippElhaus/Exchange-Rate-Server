@@ -167,6 +167,7 @@ namespace ExchangeRateServer
 
             Loop_Internet();
             Loop_UptimeAndLoad();
+            Loop_WebSocketServer();
 
             var t1 = CheckCMCCurrencies();
             var t2 = CheckFixerCurrencies();
@@ -180,12 +181,17 @@ namespace ExchangeRateServer
                 Loop_CMCQuery();
 
                 ComboBox_ReferenceCurrency.SelectionChanged += (x, y) => ChangeInReferenceCurrency(x, y);
+
+                if (App.flag_markets)
+                {
+                    Dispatcher.Invoke(() =>  Tab_Markets.Visibility = Visibility.Visible);
+                   
+                    Loop_Bitfinex_MarketInfo();
+                }
             });
 
             Loop_ExchangeRate();
 
-            if (App.flag_markets) Loop_Bitfinex_MarketInfo();
-            Loop_WebSocketServer();
         }
 
         private void InitFlags()
@@ -193,8 +199,6 @@ namespace ExchangeRateServer
             Dispatcher.Invoke(() =>
             {
                 if (!App.flag_log) Tab_Log.Visibility = Visibility.Collapsed;
-
-                if (!App.flag_markets) Dispatcher.Invoke(() => Tab_Markets.Visibility = Visibility.Collapsed);
             });
         }
 
@@ -1037,8 +1041,6 @@ namespace ExchangeRateServer
 
         private void Loop_Bitfinex_MarketInfo()
         {
-          
-
             Task.Run(async () =>
             {
                 while (true)
