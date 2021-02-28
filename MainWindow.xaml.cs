@@ -184,13 +184,18 @@ namespace ExchangeRateServer
 
             Loop_ExchangeRate();
 
-            Loop_Bitfinex_MarketInfo();
+            if (App.flag_markets) Loop_Bitfinex_MarketInfo();
             Loop_WebSocketServer();
         }
 
         private void InitFlags()
         {
-            if (!App.flag_log) Dispatcher.Invoke(() => tab_log.Visibility = Visibility.Hidden);
+            Dispatcher.Invoke(() =>
+            {
+                if (!App.flag_log) Tab_Log.Visibility = Visibility.Collapsed;
+
+                if (!App.flag_markets) Dispatcher.Invoke(() => Tab_Markets.Visibility = Visibility.Collapsed);
+            });
         }
 
         private void InitConfig()
@@ -1032,6 +1037,8 @@ namespace ExchangeRateServer
 
         private void Loop_Bitfinex_MarketInfo()
         {
+          
+
             Task.Run(async () =>
             {
                 while (true)
@@ -1392,8 +1399,7 @@ namespace ExchangeRateServer
                                 currencies = Currencies,
                                 currencies_change = CurrenciesChange?.ToList(),
                                 rates = Rates?.ToList(),
-                                bitfinexCOMmarkets = BitfinexCOMMarkets?.ToList(),
-                                bitcoinDEmarkets = BitcoinDEMarkets?.ToList()
+                                markets = App.flag_markets ? new Dictionary<string, List<MarketInfo>>() { { "Bitfinex", BitfinexCOMMarkets?.ToList() }, { "BitcoinDE", BitcoinDEMarkets?.ToList() } } : null
                             }));
                         });
                     }
@@ -1826,6 +1832,7 @@ namespace ExchangeRateServer
 
         public ExRateInfoType info;
         public List<ExchangeRate> rates;
+        public Dictionary<string, List<MarketInfo>> markets;
         public List<MarketInfo> bitfinexCOMmarkets;
         public List<MarketInfo> bitcoinDEmarkets;
         public List<Change> currencies_change;

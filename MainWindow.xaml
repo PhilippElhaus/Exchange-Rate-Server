@@ -325,7 +325,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Markets">
+            <TabItem Header="Markets" x:Name="Tab_Markets">
                 <Grid Background="#FFE5E5E5">
                     <StackPanel
                         HorizontalAlignment="Center"
@@ -420,7 +420,7 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem x:Name="tab_log" Header="Log">
+            <TabItem x:Name="Tab_Log" Header="Log">
                 <Grid Background="#FFE5E5E5">
                     <StackPanel
                         HorizontalAlignment="Center"
