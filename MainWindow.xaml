@@ -37,7 +37,7 @@
                         <ColumnDefinition Width="280"></ColumnDefinition>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="310"></RowDefinition>
+                        <RowDefinition Height="305"></RowDefinition>
                         <RowDefinition></RowDefinition>
                     </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="1" Grid.Row="1" Margin="0,10,0,0" >
@@ -47,7 +47,7 @@
                     </StackPanel>
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1">
                         <Label x:Name="lbl_exrates" VerticalContentAlignment="Center"  Content="Exchange Rates" HorizontalAlignment="Left" Height="30" Width="255" />
-                        <ListView local:GridViewSort.AutoSort="True" x:Name="ExchangeRatesLV"  HorizontalAlignment="Left" Height="280"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="260">
+                        <ListView local:GridViewSort.AutoSort="True" x:Name="ExchangeRatesLV"  HorizontalAlignment="Left" Height="275"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="260">
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn Header="CCY1" Width="40" DisplayMemberBinding="{Binding CCY1}" local:GridViewSort.PropertyName="CCY1" />
@@ -60,7 +60,7 @@
                     </StackPanel>
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
                         <Label  x:Name="lbl_currencies" Content="Currencies" HorizontalAlignment="Left" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="30" Width="100"  />
-                        <DataGrid  Grid.Row="0" Grid.Column="0" CanUserResizeColumns="False" HorizontalScrollBarVisibility="Disabled" Width="100" Height="280" RowHeaderWidth="0"  x:Name="DGCurrencies" AutoGenerateColumns="False" SelectionUnit="CellOrRowHeader"  CanUserAddRows="True">
+                        <DataGrid  Grid.Row="0" Grid.Column="0" CanUserResizeColumns="False" HorizontalScrollBarVisibility="Disabled" Width="100" Height="275" RowHeaderWidth="0"  x:Name="DGCurrencies" AutoGenerateColumns="False" SelectionUnit="CellOrRowHeader"  CanUserAddRows="True">
                             <DataGrid.Columns>
                                 <DataGridTextColumn Binding="{Binding Path=.}" Header="CCY" Width="100" IsReadOnly="True" />
                             </DataGrid.Columns>
@@ -74,6 +74,10 @@
                             <Button Content="Add" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Width="60" Height="20" Click="AddCurrency_Button" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                            <Image x:Name="onlineIndicator_Fixer" Source="images\status_red.png" Width="10" Height="10" Margin="5,0,5,0"></Image>
+                            <TextBlock>Fixer</TextBlock>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" >
                             <Image x:Name="onlineIndicator_Bitfinex" Source="images\status_red.png" Width="10" Height="10" Margin="5,0,5,0"></Image>
                             <TextBlock>Bitfinex</TextBlock> 
                         </StackPanel> 
@@ -90,12 +94,12 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Name="CMC_Currencies" Header="Change"  >
+            <TabItem Name="Change_Currencies" Header="Change"  >
                 <Grid Background="#FFE5E5E5">
                     <StackPanel   Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
                         <StackPanel Orientation="Horizontal" Height="30" Width="380">
                             <Label x:Name="lbl_currencies_change"  Content="Currencies" HorizontalAlignment="Left" VerticalAlignment="Center" />
-                            <ComboBox Width="60" Height="22" x:Name="ComboBox_ReferenceCurrency" VerticalAlignment="Center" SelectionChanged="CMC_Query"></ComboBox>
+                            <ComboBox Width="60" Height="22" x:Name="ComboBox_ReferenceCurrency" VerticalAlignment="Center" SelectedIndex="0"></ComboBox>
                         </StackPanel>
                         <ListView local:GridViewSort.AutoSort="True" x:Name="CurrencyLV" ScrollViewer.HorizontalScrollBarVisibility="Disabled"  HorizontalAlignment="Left" Height="375"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="380">
                             <ListView.View>
@@ -143,14 +147,11 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
-          
-            
-            
-            <TabItem Header="Log">
+            <TabItem x:Name="tab_log" Header="Log">
                 <Grid Background="#FFE5E5E5">
                     <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
                         <Grid Height="30">
-                            <Label HorizontalAlignment="Left" Height="30" VerticalContentAlignment="Center" VerticalAlignment="Top">System Log</Label>
+                            <Label x:Name="LBL_SysLog" HorizontalAlignment="Left" Height="30" VerticalContentAlignment="Center" VerticalAlignment="Top">System Log</Label>
                             <Button HorizontalAlignment="Right" Height="20"  Click="ClearLog">Clear</Button>
                         </Grid>
                      

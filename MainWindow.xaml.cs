@@ -31,6 +31,7 @@ namespace ExchangeRateServer
 {
     internal enum Services
     {
+        Fixer = 0,
         CMC = 1,
         Bitfinex = 2,
         Coinbase = 3
@@ -43,6 +44,9 @@ namespace ExchangeRateServer
         private double currentCPUusage;
         private double currentRAMusage;
         private DateTime appStartUp;
+
+        private bool cmcQuery;
+        private bool fixerQuery;
 
         private bool online;
         private bool isCurrentlyUpdatingActivity;
@@ -69,6 +73,7 @@ namespace ExchangeRateServer
         internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
 
         private string CMCAPIKEY;
+        private string FIXERAPIKEY;
         private string WSSENDPOINT = "/rates";
         private string REFERENCECURRENCY = "EUR";
 
@@ -83,6 +88,7 @@ namespace ExchangeRateServer
         private List<string> BitfinexCurrenices = new List<string>();
         private List<string> CMCCurrenicesFIAT = new List<string>();
         private List<string> CMCCurrenicesCrypto = new List<string>();
+        private List<string> FixerCurrencies = new List<string>();
 
         public MainWindow()
         {
@@ -95,6 +101,7 @@ namespace ExchangeRateServer
 
             DGCurrencies.ItemsSource = Currencies;
 
+            InitFlags();
             InitConfig();
 
             // Events
@@ -164,11 +171,20 @@ namespace ExchangeRateServer
             CheckCMCCurrencies();
             CheckCoinbaseCurrencies();
             CheckBitfinexCurrencies();
+            CheckFixerCurrencies();
 
             Loop_ExchangeRate_Coinbase();
+            Loop_FixerQuery();
             Loop_CMCQuery();
             Loop_Bitfinex_MarketInfo();
             Loop_WebSocketServer();
+
+            ComboBox_ReferenceCurrency.SelectionChanged += (x,y) => ChangeInReferenceCurrency(x,y);
+        }
+
+        private void InitFlags()
+        {
+            if (!App.flag_log) Dispatcher.Invoke(() => tab_log.Visibility = Visibility.Hidden);
         }
 
         private void InitConfig()
@@ -186,6 +202,10 @@ namespace ExchangeRateServer
                             if (entry.StartsWith("CMCAPIKEY"))
                             {
                                 CMCAPIKEY = entry.Remove(0, entry.IndexOf("=") + 1);
+                            }
+                            else if (entry.StartsWith("FIXERAPIKEY"))
+                            {
+                                FIXERAPIKEY = entry.Remove(0, entry.IndexOf("=") + 1);
                             }
                             else if (entry.StartsWith("WSSENDPOINT"))
                             {
@@ -715,7 +735,7 @@ namespace ExchangeRateServer
         {
             if (string.IsNullOrEmpty(CMCAPIKEY))
             {
-                Dispatcher.Invoke(() => { CMC_Currencies.Visibility = Visibility.Collapsed; });
+                log.Information("No CMC API Key provided. Crypto currency change data will not be displayed.");
 
                 return;
             }
@@ -726,7 +746,8 @@ namespace ExchangeRateServer
                 {
                     try
                     {
-                        CMC_Query(null, null);
+                        CMC_Query();
+                     
                     }
                     finally
                     {
@@ -736,79 +757,222 @@ namespace ExchangeRateServer
             });
         }
 
-        private void CMC_Query(object sender, SelectionChangedEventArgs e)
+        private async void CMC_Query(bool reference_change = false)
         {
-            try
+            if (cmcQuery || string.IsNullOrEmpty(CMCAPIKEY)) return;
+            else cmcQuery = true;
+
+            await Task.Run(async () =>
             {
-                if (string.IsNullOrEmpty(CMCAPIKEY))
+                try
                 {
-                    Dispatcher.Invoke(() => { CMC_Currencies.Visibility = Visibility.Collapsed; });
+                    AwaitOnline(Services.CMC);
 
-                    return;
-                }
+                    Activity();
 
-                AwaitOnline(Services.CMC);
+                    string reference = await GetReferenceCurrency();
 
-                Activity();
-
-                string reference = default;
-                Dispatcher.Invoke(() =>
-                {
-                    if (ComboBox_ReferenceCurrency.SelectedItem == null)
+                    using (var client = new WebClient())
                     {
-                        if (string.IsNullOrEmpty(REFERENCECURRENCY)) { REFERENCECURRENCY = "EUR"; }
+                        client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
+                        client.Headers.Add("Accepts", "application/json");
 
-                        reference = REFERENCECURRENCY;
-                    }
-                    else
-                    {
-                        reference = (string)ComboBox_ReferenceCurrency.SelectedItem;
+                        var currencies = Currencies.Where(x => CMCCurrenicesCrypto.Contains(x));
 
-                        if (sender != null) ExchangeRateInfo.Text = $"Changed Reference Currency to [{reference}].";
-                    }
-                });
-
-                using (var client = new WebClient())
-                {
-                    client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
-                    client.Headers.Add("Accepts", "application/json");
-
-                    var currencies = Currencies.Where(x => CMCCurrenicesCrypto.Contains(x));
-
-                    var remove = CurrenciesChange.Where(x => DateTime.Now - x.Date < new TimeSpan(0, 5, 0));
-
-                    if (remove.Count() > 0)
-                    {
-                        currencies = currencies.Where(x => !remove.Any(y => y.Currency == x));
-                    }
-
-                    var symbols = string.Join(",", currencies);
-                    if (string.IsNullOrEmpty(symbols)) return;
-
-                    string url = $"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol={symbols}&convert={reference}";
-                    var json = client.DownloadString(url);
-
-                    json = json.Replace("\"quote\":{\"" + $"{reference}" + "\"", "\"quote\":{\"Currency\"");
-
-                    CMC_JSON cmc = JsonConvert.DeserializeObject<CMC_JSON>(json);
-
-                    Dispatcher.Invoke(() =>
-                    {
-                        foreach (var item in cmc.data)
+                        if (!reference_change)
                         {
-                            var temp = new Change()
+                            var remove = CurrenciesChange.Where(x => DateTime.Now - x.Date < new TimeSpan(0, 5, 0));
+
+                            if (remove.Count() > 0)
+                            {
+                                currencies = currencies.Where(x => !remove.Any(y => y.Currency == x));
+                            }
+                        }
+
+                        var symbols = string.Join(",", currencies);
+                        if (string.IsNullOrEmpty(symbols)) return;
+
+                        string url = $"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol={symbols}&convert={reference}";
+                        var json = client.DownloadString(url);
+
+                        json = json.Replace("\"quote\":{\"" + $"{reference}" + "\"", "\"quote\":{\"Currency\"");
+
+                        CMC_JSON cmc = JsonConvert.DeserializeObject<CMC_JSON>(json);
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            foreach (var item in cmc.data)
+                            {
+                                var temp = new Change()
+                                {
+                                    Reference = reference,
+                                    Currency = item.Value.symbol,
+                                    Change1h = Math.Round(item.Value.quote.currency.percent_change_1h, 2),
+                                    Change24h = Math.Round(item.Value.quote.currency.percent_change_24h, 2),
+                                    Change7d = Math.Round(item.Value.quote.currency.percent_change_7d, 2),
+                                    Change30d = Math.Round(item.Value.quote.currency.percent_change_30d, 2),
+                                    Date = DateTime.Now
+                                };
+
+                                var entry = CurrenciesChange.Where(x => x.Currency == temp.Currency).SingleOrDefault();
+
+                                if (entry == default)
+                                {
+                                    CurrenciesChange.Add(temp);
+                                }
+                                else
+                                {
+                                    CurrenciesChange.Remove(entry);
+
+                                    CurrenciesChange.Add(temp);
+                                }
+                            }
+
+                            CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderBy(x => x.Currency));
+                        });
+
+                        if (reference_change) log.Information($"CMC: Added {cmc.data.Count()} currencies for new reference currency [{reference}].");
+                    }
+                }
+                catch (Exception ex) when (ex.Message.Contains("408"))
+                {
+                    log.Error($"Error in CMC Query: General Timeout");
+                }
+                catch (Exception ex) when (ex.Message.Contains("504"))
+                {
+                    log.Error($"Error in CMC Query: Gateway Timeout");
+                }
+                catch (Exception ex) when (ex.Message.Contains("404"))
+                {
+                    log.Error("Error in CMC Query: Not found");
+                }
+                catch (Exception ex)
+                {
+                    log.Error($"Error in CMC Query: {ex}");
+                }
+            });
+
+            cmcQuery = false;
+        }
+
+        // Fixer API
+
+        private void Loop_FixerQuery()
+        {
+            if (string.IsNullOrEmpty(FIXERAPIKEY))
+            {
+                log.Information("No Fixer.io API Key provided. Fiat currency change data will not be displayed.");
+
+                return;
+            }
+
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    try
+                    {
+                        Fixer_Query();
+                    }
+                    finally
+                    {
+                        await Task.Delay(new TimeSpan(1, 0, 0, 0));
+                    }
+                }
+            });
+        }
+
+        private async void Fixer_Query(bool reference_change = false)
+        {
+            if (fixerQuery || string.IsNullOrEmpty(FIXERAPIKEY)) return;
+            else fixerQuery = true;
+
+            await Task.Run(async () =>
+            {
+                try
+                {
+                    AwaitOnline(Services.Fixer);
+
+                    Activity();
+
+                    string reference = await GetReferenceCurrency();
+
+                    var currencies = Currencies.Where(x => FixerCurrencies.Contains(x) && !CMCCurrenicesCrypto.Contains(x) && x != reference);
+
+                    string symbol = string.Join(",", currencies.ToArray());
+
+                    string[] dates = new string[] { "latest", (DateTime.Now - new TimeSpan(1, 0, 0, 0)).ToString("yyyy-MM-dd"), (DateTime.Now - new TimeSpan(7, 0, 0, 0)).ToString("yyyy-MM-dd"), (DateTime.Now - new TimeSpan(30, 0, 0, 0)).ToString("yyyy-MM-dd") };
+
+                    Fixer_JSON[] query = new Fixer_JSON[4];
+
+                    using (WebClient webclient = new WebClient())
+                    {
+                        for (int i = 0; i < 4; i++)
+                        {
+                            var json = webclient.DownloadString($"http://data.fixer.io/api/{dates[i]}?access_key={FIXERAPIKEY}&base=EUR&symbols={symbol + (reference == "EUR" ? null : $",{reference}")}");
+                            query[i] = JsonConvert.DeserializeObject<Fixer_JSON>(json);
+                        }
+                    }
+
+                    RemovePreviousReferenceCurrency();
+
+                    foreach (var currency in currencies)
+                    {
+                        Change temp;
+
+                        if (reference == "EUR")
+                        {
+                            temp = new Change()
                             {
                                 Reference = reference,
-                                Currency = item.Value.symbol,
-                                Change1h = Math.Round(item.Value.quote.currency.percent_change_1h, 2),
-                                Change24h = Math.Round(item.Value.quote.currency.percent_change_24h, 2),
-                                Change7d = Math.Round(item.Value.quote.currency.percent_change_7d, 2),
-                                Change30d = Math.Round(item.Value.quote.currency.percent_change_30d, 2),
+                                Currency = currency,
+                                Change1h = 0,
+                                Change24h = Math.Round(((query[1].Rates[currency] / query[0].Rates[currency]) - 1) * 100, 2),
+                                Change7d = Math.Round(((query[2].Rates[currency] / query[0].Rates[currency]) - 1) * 100, 2),
+                                Change30d = Math.Round(((query[3].Rates[currency] / query[0].Rates[currency]) - 1) * 100, 2),
                                 Date = DateTime.Now
                             };
+                        }
+                        else
+                        {
+                            temp = new Change()
+                            {
+                                Reference = reference,
+                                Currency = currency,
+                                Change1h = 0,
+                                Change24h = Math.Round((((query[1].Rates[currency] / query[0].Rates[currency]) / (query[1].Rates[reference] / query[0].Rates[reference])) - 1) * 100, 2),
+                                Change7d = Math.Round((((query[2].Rates[currency] / query[0].Rates[currency]) / (query[2].Rates[reference] / query[0].Rates[reference])) - 1) * 100, 2),
+                                Change30d = Math.Round((((query[3].Rates[currency] / query[0].Rates[currency]) / (query[3].Rates[reference] / query[0].Rates[reference])) - 1) * 100, 2),
+                                Date = DateTime.Now
+                            };
+                        }
 
-                            var entry = CurrenciesChange.Where(x => x.Currency == temp.Currency).SingleOrDefault();
+                        UpdateEntry(temp);
+                    }
 
+                    await Dispatcher.InvokeAsync(() => { CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderBy(x => x.Currency)); });
+
+                    if (reference_change) log.Information($"Fixer.io: Added {currencies.Count()} currencies for new reference currency [{reference}].");
+
+                    async void RemovePreviousReferenceCurrency()
+                    {
+                        var ref_entry = CurrenciesChange.Where(x => x.Currency == reference).SingleOrDefault();
+
+                        await Dispatcher.InvokeAsync(() =>
+                        {
+                            if (ref_entry != default)
+                            {
+                                CurrenciesChange.Remove(ref_entry);
+                            }
+                        });
+                    }
+
+                    async void UpdateEntry(Change temp)
+                    {
+                        var entry = CurrenciesChange.Where(x => x.Currency == temp.Currency).SingleOrDefault();
+
+                        await Dispatcher.InvokeAsync(() =>
+                        {
                             if (entry == default)
                             {
                                 CurrenciesChange.Add(temp);
@@ -819,35 +983,28 @@ namespace ExchangeRateServer
 
                                 CurrenciesChange.Add(temp);
                             }
-
-                            CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderBy(x => x.Currency));
-                        }
-
-                        foreach (var currency in CurrenciesChange.ToArray())
-                        {
-                            if ((DateTime.Now - new TimeSpan(0, 1, 0)) > currency.Date) CurrenciesChange.Remove(currency);
-                        }
-                    });
-
-                    if (sender != null) log.Information($"Added {cmc.data.Count()} currencies for new reference curreny [{reference}].");
+                        });
+                    }
                 }
-            }
-            catch (Exception ex) when (ex.Message.Contains("408"))
-            {
-                log.Error($"Error in CMC Query: General Timeout");
-            }
-            catch (Exception ex) when (ex.Message.Contains("504"))
-            {
-                log.Error($"Error in CMC Query: Gateway Timeout");
-            }
-            catch (Exception ex) when (ex.Message.Contains("404"))
-            {
-                log.Error("Error in CMC Query: Not found");
-            }
-            catch (Exception ex)
-            {
-                log.Error($"Error in CMC Query: {ex}");
-            }
+                catch (Exception ex) when (ex.Message.Contains("408"))
+                {
+                    log.Error($"Error in Fixer.io Query: General Timeout");
+                }
+                catch (Exception ex) when (ex.Message.Contains("504"))
+                {
+                    log.Error($"Error in Fixer.io Query: Gateway Timeout");
+                }
+                catch (Exception ex) when (ex.Message.Contains("404"))
+                {
+                    log.Error("Error in Fixer.io Query: Not found");
+                }
+                catch (Exception ex)
+                {
+                    log.Error($"Error in Fixer.io Query: {ex.Short()}");
+                }
+            });
+
+            fixerQuery = false;
         }
 
         // Market Info
@@ -891,56 +1048,99 @@ namespace ExchangeRateServer
             });
         }
 
+        // API Supported Currencies
+
         private void CheckCoinbaseCurrencies()
         {
             Task.Run(async () =>
             {
-                int failCounter = 0;
+                int fiatCtr = 0;
+                int cryptoCtr = 0;
 
-                while (failCounter < 10)
+                try
                 {
-                    AwaitOnline(Services.Coinbase);
-
-                    int fiatCtr = 0;
-                    int cryptoCtr = 0;
-
-                    try
+                    Task fiat = Task.Run(async () =>
                     {
-                        using (WebClient webclient = new WebClient())
+                        using (WebClient client = new WebClient())
                         {
-                            var json_fiat = webclient.DownloadString("https://api.coinbase.com/v2/currencies");
-
-                            var currencies_fiat = JsonConvert.DeserializeObject<Coinbase_Currencies_JSON>(json_fiat);
-
-                            foreach (var item in currencies_fiat.data)
+                            while (true)
                             {
-                                fiatCtr++;
-                                CoinbaseCurrenices.Add(item.Id);
-                            }
+                                AwaitOnline(Services.Coinbase);
 
-                            var json_crypto = webclient.DownloadString("https://api.pro.coinbase.com/currencies");
-
-                            var currencies_crypto = JsonConvert.DeserializeObject<List<Coinbase_Currencies_JSON>>(json_crypto);
-
-                            foreach (var item in currencies_crypto)
-                            {
-                                if (!CoinbaseCurrenices.Contains(item.id))
+                                try
                                 {
-                                    cryptoCtr++;
-                                    CoinbaseCurrenices.Add(item.id);
+                                    var json_fiat = client.DownloadString("https://api.coinbase.com/v2/currencies");
+
+                                    var currencies_fiat = JsonConvert.DeserializeObject<Coinbase_Currencies_JSON>(json_fiat);
+
+                                    foreach (var item in currencies_fiat.data)
+                                    {
+                                        fiatCtr++;
+                                        CoinbaseCurrenices.Add(item.Id);
+                                    }
+
+                                    break;
+                                }
+                                catch (Exception ex) when (ex.Message.Contains("400"))
+                                {
+                                    await Task.Delay(10000);
+                                }
+                                catch (Exception ex)
+                                {
+                                    log.Information($"Error querying Coinbase Fiat currencies: {ex.Short()}");
+
+                                    await Task.Delay(10000);
                                 }
                             }
                         }
+                    });
 
-                        log.Information($"Found {fiatCtr} Fiat & {cryptoCtr} Crypto Currencies at Coinbase.");
-                        break;
-                    }
-                    catch (Exception ex)
+                    Task crypto = Task.Run(async () =>
                     {
-                        failCounter++;
-                        log.Information($"Error querying Coinbase currencies: {ex.Message}");
-                        await Task.Delay(5000 * failCounter);
-                    }
+                        using (WebClient client = new WebClient())
+                        {
+                            while (true)
+                            {
+                                AwaitOnline(Services.Coinbase);
+
+                                try
+                                {
+                                    var json_crypto = client.DownloadString("https://api.pro.coinbase.com/currencies");
+
+                                    var currencies_crypto = JsonConvert.DeserializeObject<List<Coinbase_Currencies_JSON>>(json_crypto);
+
+                                    foreach (var item in currencies_crypto)
+                                    {
+                                        if (!CoinbaseCurrenices.Contains(item.id))
+                                        {
+                                            cryptoCtr++;
+                                            CoinbaseCurrenices.Add(item.id);
+                                        }
+                                    }
+
+                                    break;
+                                }
+                                catch (Exception ex) when (ex.Message.Contains("400"))
+                                {
+                                    await Task.Delay(10000);
+                                }
+                                catch (Exception ex)
+                                {
+                                    log.Information($"Error querying Coinbase Crypto currencies: {ex.Short()}");
+
+                                    await Task.Delay(10000);
+                                }
+                            }
+                        }
+                    });
+
+                    await Task.WhenAll(new Task[] { fiat, crypto });
+
+                    log.Information($"Found {fiatCtr} Fiat & {cryptoCtr} Crypto Currencies at Coinbase.");
+                }
+                catch (Exception ex)
+                {
+                    log.Information($"Error querying Coinbase currencies: {ex.Short()}");
                 }
             });
         }
@@ -970,7 +1170,7 @@ namespace ExchangeRateServer
                                 BitfinexCurrenices.Add(item);
                             }
 
-                            log.Information($"Found {currencies.Count()} Bitfinex Currencies.");
+                            log.Information($"Found {currencies.Count()} Currencies at Bitfinex.");
                             break;
                         }
                     }
@@ -1049,7 +1249,7 @@ namespace ExchangeRateServer
 
                         Dispatcher.Invoke(() =>
                         {
-                            ComboBox_ReferenceCurrency.ItemsSource = CMCCurrenicesFIAT;
+                            ComboBox_ReferenceCurrency.ItemsSource = CMCCurrenicesFIAT.Intersect(FixerCurrencies);
 
                             if (REFERENCECURRENCY != null)
                             {
@@ -1069,6 +1269,56 @@ namespace ExchangeRateServer
                         failCounter++;
                         log.Information($"Error querying CMC currencies: {ex.Message}");
                         await Task.Delay(5000 * failCounter);
+                    }
+                }
+            });
+        }
+
+        private void CheckFixerCurrencies()
+        {
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    AwaitOnline(Services.Fixer);
+
+                    try
+                    {
+                        using (WebClient webclient = new WebClient())
+                        {
+                            var json = webclient.DownloadString($"http://data.fixer.io/api/symbols?access_key={FIXERAPIKEY}");
+
+                            json = json.Remove(0, json.IndexOf(":{") + 2);
+                            json = json.Remove(json.IndexOf("}}"));
+
+                            var split = json.Split(new char[] { ',', ':' }, StringSplitOptions.RemoveEmptyEntries);
+
+                            FixerCurrencies = split.Where(x => x.Length == 5).Select(x => x.Trim('"')).ToList();
+                        }
+
+                        log.Information($"Found {FixerCurrencies.Count} Currencies at Fixer.io");
+
+                        Dispatcher.Invoke(() =>
+                        {
+                            ComboBox_ReferenceCurrency.ItemsSource = FixerCurrencies.Intersect(CMCCurrenicesFIAT);
+
+                            if (REFERENCECURRENCY != null)
+                            {
+                                var idx = FixerCurrencies.IndexOf(REFERENCECURRENCY);
+
+                                if (idx != -1)
+                                {
+                                    ComboBox_ReferenceCurrency.SelectedIndex = idx;
+                                }
+                            }
+                        });
+
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Information($"Error querying Fixer.io currencies: {ex.Short()}");
+                        await Task.Delay(10000);
                     }
                 }
             });
@@ -1161,7 +1411,10 @@ namespace ExchangeRateServer
 
                                 wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
 
-                                log.Information($"Sent history for [{CCY1}/{CCY2}].");
+                                Dispatcher.Invoke(() =>
+                                {
+                                    ExchangeRateInfo.Text = $"Sent history for [{CCY1}/{CCY2}].";
+                                });
                             }
                             else
                             {
@@ -1243,7 +1496,8 @@ namespace ExchangeRateServer
                                 wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
                             }
 
-                            CMC_Query(null, null);
+                            CMC_Query();
+                            Fixer_Query();
 
                             return;
                         }
@@ -1360,6 +1614,18 @@ namespace ExchangeRateServer
                                         Dispatcher.Invoke(() => { onlineIndicator_Coinbase.Source = Res.Yellow; });
                                     }
                                     break;
+
+                                case Services.Fixer:
+                                    if (ping.Send("data.fixer.io").Status == IPStatus.Success)
+                                    {
+                                        Dispatcher.Invoke(() => { onlineIndicator_Fixer.Source = Res.Green; });
+                                        return true;
+                                    }
+                                    else
+                                    {
+                                        Dispatcher.Invoke(() => { onlineIndicator_Fixer.Source = Res.Yellow; });
+                                    }
+                                    break;
                             }
 
                             Thread.Sleep(1000);
@@ -1381,6 +1647,10 @@ namespace ExchangeRateServer
                                 case Services.Coinbase:
                                     Dispatcher.Invoke(() => { onlineIndicator_Coinbase.Source = Res.Red; });
                                     break;
+
+                                case Services.Fixer:
+                                    Dispatcher.Invoke(() => { onlineIndicator_Fixer.Source = Res.Red; });
+                                    break;
                             }
 
                             Thread.Sleep(1000);
@@ -1395,6 +1665,27 @@ namespace ExchangeRateServer
                     continue;
                 }
             }
+        }
+
+        private async Task<string> GetReferenceCurrency()
+        {
+            string reference = default;
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                if (ComboBox_ReferenceCurrency.SelectedItem == null)
+                {
+                    if (string.IsNullOrEmpty(REFERENCECURRENCY)) { REFERENCECURRENCY = "EUR"; }
+
+                    reference = REFERENCECURRENCY;
+                }
+                else
+                {
+                    reference = (string)ComboBox_ReferenceCurrency.SelectedItem;
+                }
+            });
+
+            return reference;
         }
 
         // Interface
@@ -1426,6 +1717,17 @@ namespace ExchangeRateServer
             AddCurrency_Button(default, default);
         }
 
+        private void ChangeInReferenceCurrency(object sender, SelectionChangedEventArgs e)
+        {
+            if (IsLoaded && IsInitialized)
+            {
+                CMC_Query(true);
+                Fixer_Query(true);
+
+                log.Information($"Changed Reference Currency to [{ComboBox_ReferenceCurrency.SelectedItem as string}].");
+            }
+        }
+
         private void VPNTaskBarIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
         {
             Dispatcher.Invoke(() =>
@@ -1444,7 +1746,11 @@ namespace ExchangeRateServer
 
         private void ClearLog(object sender, RoutedEventArgs e)
         {
-            Dispatcher.Invoke(() => { SystemLog.Text = ""; });
+            Dispatcher.Invoke(() =>
+            {
+                SystemLog.Text = "";
+                LBL_SysLog.Content = $"System Log";
+            });
         }
 
         // Exit
@@ -1545,7 +1851,10 @@ namespace ExchangeRateServer
                         if (data.Length == 3) Main.WSS_History(data[1], data[2]);
                         else Main.WSS_History(data[1], "EUR");
 
-                        Main.log.Information($"Request for Historic Data on [{data[1]}/{data[2]}] received.");
+                        Main.Dispatcher.Invoke(() =>
+                        {
+                            Main.ExchangeRateInfo.Text = $"Request for Historic Data on [{data[1]}/{data[2]}] received.";
+                        });
                     }
                     else if (e.Data.StartsWith("CURRENCY")) // CURRENCY.BTC
                     {
@@ -1690,6 +1999,18 @@ namespace ExchangeRateServer
         }
     }
 
+    public class Fixer_JSON
+    {
+        [JsonProperty("base")]
+        public string Base { get; set; }
+
+        [JsonProperty("date")]
+        public DateTimeOffset Date { get; set; }
+
+        [JsonProperty("rates")]
+        public Dictionary<string, double> Rates { get; set; }
+    }
+
     // Converter
 
     public class TimeSinceLastUpdate : IValueConverter
@@ -1731,8 +2052,10 @@ namespace ExchangeRateServer
         public static readonly System.Drawing.Icon Connected = new System.Drawing.Icon(@"images\yellow.ico");
     }
 
-    public class Ext
+    public static class Ext
     {
+        public static string Short(this Exception ex) => ex.Message + ex.ToString().Remove(0, ex.ToString().IndexOf(":line"));
+
         public static void FileCheck(string filename)
         {
             if (!File.Exists(filename)) using (File.Create(filename)) { };
@@ -1942,14 +2265,16 @@ namespace ExchangeRateServer
 
         public void Emit(LogEvent logEvent)
         {
-            Main.Dispatcher.Invoke(() =>
+            if (App.flag_log)
             {
-                if (Main.SystemLog.Text.Length > 16384) Main.SystemLog.Text = "";
-                Main.SystemLog.AppendText(logEvent.RenderMessage() + "\n");
-            });
+                Main.Dispatcher.Invoke(() =>
+                {
+                    if (Main.SystemLog.Text.Length > 16384) Main.SystemLog.Text = "";
+                    Main.SystemLog.AppendText(logEvent.RenderMessage() + "\n");
 
-            if (App.flag_log == true)
-            {
+                    Main.LBL_SysLog.Content = $"System Log ({Main.SystemLog.Text.Length})";
+                });
+
                 lock (fileAccessLock_syslog)
                 {
                     try
