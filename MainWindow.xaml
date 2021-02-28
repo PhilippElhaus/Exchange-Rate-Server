@@ -1,146 +1,419 @@
-﻿<Window x:Class="ExchangeRateServer.MainWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:ExchangeRateServer"
-        xmlns:tb="http://www.hardcodet.net/taskbar"
-        mc:Ignorable="d" ResizeMode="NoResize"  ShowInTaskbar="False"
-        Closing="ClosingMainWindow"
-        Title="ExchangeRate Server" Height="500" Width="420">
+﻿<Window
+    x:Class="ExchangeRateServer.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:ExchangeRateServer"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:tb="http://www.hardcodet.net/taskbar"
+    Title="ExchangeRate Server"
+    Width="420"
+    Height="500"
+    Closing="ClosingMainWindow"
+    ResizeMode="NoResize"
+    ShowInTaskbar="False"
+    mc:Ignorable="d">
     <Window.Resources>
         <local:TimeSinceLastUpdate x:Key="TimeSinceLastUpdate" />
     </Window.Resources>
-    <DockPanel LastChildFill="True" Background="#FFE5E5E5">
-        <tb:TaskbarIcon x:Name="TaskBarIcon" PopupActivation="LeftClick" TrayMouseDoubleClick="VPNTaskBarIcon_TrayMouseDoubleClick">
+    <DockPanel Background="#FFE5E5E5" LastChildFill="True">
+        <tb:TaskbarIcon
+            x:Name="TaskBarIcon"
+            PopupActivation="LeftClick"
+            TrayMouseDoubleClick="VPNTaskBarIcon_TrayMouseDoubleClick">
             <tb:TaskbarIcon.TrayPopup>
-                <StackPanel Orientation="Vertical" Background="LightGray" Margin="50" Width="200" Height="80">
-                    <TextBlock FontSize="16" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,10,0,10">Exchange Rate Server</TextBlock>
-                    <Button x:Name="QuitApplicationButton" Width="60" Height="25" Content="Quit" HorizontalAlignment="Center" VerticalAlignment="Center" Click="QuitApplication" />
+                <StackPanel
+                    Width="200"
+                    Height="80"
+                    Margin="50"
+                    Background="LightGray"
+                    Orientation="Vertical">
+                    <TextBlock
+                        Margin="0,10,0,10"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="16"
+                        FontWeight="Bold">
+                        Exchange Rate Server
+                    </TextBlock>
+                    <Button
+                        x:Name="QuitApplicationButton"
+                        Width="60"
+                        Height="25"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Click="QuitApplication"
+                        Content="Quit" />
                 </StackPanel>
             </tb:TaskbarIcon.TrayPopup>
         </tb:TaskbarIcon>
 
-        <StatusBar DockPanel.Dock="Bottom" Height="25" VerticalAlignment="Bottom" BorderBrush="LightGray" BorderThickness="1">
-            <StackPanel  Orientation="Horizontal">
-                <Image x:Name="onlineIndicator" Source="images\status_yellow.png" Width="15" Height="15" Margin="5,0,5,0"></Image>
-                <Image x:Name="activityIndicator" Source="images\status_red.png"  Width="10" Height="10"></Image>
-                <Separator Width="20" Visibility="Hidden"></Separator>
-                <TextBlock Width="350" x:Name="ExchangeRateInfo">...</TextBlock>
+        <StatusBar
+            Height="25"
+            VerticalAlignment="Bottom"
+            BorderBrush="LightGray"
+            BorderThickness="1"
+            DockPanel.Dock="Bottom">
+            <StackPanel Orientation="Horizontal">
+                <Image
+                    x:Name="onlineIndicator"
+                    Width="15"
+                    Height="15"
+                    Margin="5,0,5,0"
+                    Source="images\status_yellow.png" />
+                <Image
+                    x:Name="activityIndicator"
+                    Width="10"
+                    Height="10"
+                    Source="images\status_red.png" />
+                <Separator Width="20" Visibility="Hidden" />
+                <TextBlock x:Name="ExchangeRateInfo" Width="350">...</TextBlock>
             </StackPanel>
         </StatusBar>
         <TabControl DockPanel.Dock="Top">
             <TabItem Header="Main">
                 <Grid Background="#FFE5E5E5">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition ></ColumnDefinition>
-                        <ColumnDefinition Width="280"></ColumnDefinition>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="280" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="305"></RowDefinition>
-                        <RowDefinition></RowDefinition>
+                        <RowDefinition Height="305" />
+                        <RowDefinition />
                     </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center" Grid.Column="1" Grid.Row="1" Margin="0,10,0,0" >
-                        <TextBlock x:Name="WebSocketServerStatus" TextAlignment="Center"  HorizontalAlignment="Center"  TextWrapping="Wrap" Text="WebSocket Server" VerticalAlignment="Center" Height="80" Width="130" />
-                        <Separator Width="10" Visibility="Hidden"></Separator>
-                        <TextBlock x:Name="SystemInfo" TextAlignment="Center"  HorizontalAlignment="Center" TextWrapping="Wrap"  Text="System" VerticalAlignment="Center" Height="80" Width="130" />
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Margin="0,10,0,0"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal">
+                        <TextBlock
+                            x:Name="WebSocketServerStatus"
+                            Width="130"
+                            Height="80"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Text="WebSocket Server"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                        <Separator Width="10" Visibility="Hidden" />
+                        <TextBlock
+                            x:Name="SystemInfo"
+                            Width="130"
+                            Height="80"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Text="System"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top" Grid.Column="1">
-                        <Label x:Name="lbl_exrates" VerticalContentAlignment="Center"  Content="Exchange Rates" HorizontalAlignment="Left" Height="30" Width="255" />
-                        <ListView local:GridViewSort.AutoSort="True" x:Name="ExchangeRatesLV"  HorizontalAlignment="Left" Height="275"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="260">
+                    <StackPanel
+                        Grid.Column="1"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Orientation="Vertical">
+                        <Label
+                            x:Name="lbl_exrates"
+                            Width="255"
+                            Height="30"
+                            HorizontalAlignment="Left"
+                            VerticalContentAlignment="Center"
+                            Content="Exchange Rates" />
+                        <ListView
+                            x:Name="ExchangeRatesLV"
+                            Width="260"
+                            Height="275"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            local:GridViewSort.AutoSort="True"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="CCY1" Width="40" DisplayMemberBinding="{Binding CCY1}" local:GridViewSort.PropertyName="CCY1" />
-                                    <GridViewColumn Header="CCY2" Width="40" DisplayMemberBinding="{Binding CCY2}" local:GridViewSort.PropertyName="CCY2" />
-                                    <GridViewColumn Header="Rate" Width="80" DisplayMemberBinding="{Binding Rate}" local:GridViewSort.PropertyName="Rate" />
-                                    <GridViewColumn Header="Age" Width="70" DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}" local:GridViewSort.PropertyName="Date" />
+                                    <GridViewColumn
+                                        Width="40"
+                                        local:GridViewSort.PropertyName="CCY1"
+                                        DisplayMemberBinding="{Binding CCY1}"
+                                        Header="CCY1" />
+                                    <GridViewColumn
+                                        Width="40"
+                                        local:GridViewSort.PropertyName="CCY2"
+                                        DisplayMemberBinding="{Binding CCY2}"
+                                        Header="CCY2" />
+                                    <GridViewColumn
+                                        Width="80"
+                                        local:GridViewSort.PropertyName="Rate"
+                                        DisplayMemberBinding="{Binding Rate}"
+                                        Header="Rate" />
+                                    <GridViewColumn
+                                        Width="70"
+                                        local:GridViewSort.PropertyName="Date"
+                                        DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
+                                        Header="Age" />
                                 </GridView>
                             </ListView.View>
                         </ListView>
                     </StackPanel>
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
-                        <Label  x:Name="lbl_currencies" Content="Currencies" HorizontalAlignment="Left" VerticalContentAlignment="Center" VerticalAlignment="Center" Height="30" Width="100"  />
-                        <DataGrid  Grid.Row="0" Grid.Column="0" CanUserResizeColumns="False" HorizontalScrollBarVisibility="Disabled" Width="100" Height="275" RowHeaderWidth="0"  x:Name="DGCurrencies" AutoGenerateColumns="False" SelectionUnit="CellOrRowHeader"  CanUserAddRows="True">
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Orientation="Vertical">
+                        <Label
+                            x:Name="lbl_currencies"
+                            Width="100"
+                            Height="30"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="Currencies" />
+                        <DataGrid
+                            x:Name="DGCurrencies"
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Width="100"
+                            Height="275"
+                            AutoGenerateColumns="False"
+                            CanUserAddRows="True"
+                            CanUserResizeColumns="False"
+                            HorizontalScrollBarVisibility="Disabled"
+                            RowHeaderWidth="0"
+                            SelectionUnit="CellOrRowHeader">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Binding="{Binding Path=.}" Header="CCY" Width="100" IsReadOnly="True" />
+                                <DataGridTextColumn
+                                    Width="100"
+                                    Binding="{Binding Path=.}"
+                                    Header="CCY"
+                                    IsReadOnly="True" />
                             </DataGrid.Columns>
                         </DataGrid>
                     </StackPanel>
-                    <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Orientation="Vertical">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,0"  >
-                            <TextBox x:Name="currencyInput" HorizontalAlignment="Left" Height="20" Grid.Row="1" MaxLines="1" VerticalAlignment="Top" Width="30" Text="CCY" KeyUp="AddCurrency_EnterKey" />
-                            <Separator Width="10" Visibility="Hidden"></Separator>
-                            
-                            <Button Content="Add" HorizontalAlignment="Left" Grid.Row="1" VerticalAlignment="Top" Width="60" Height="20" Click="AddCurrency_Button" />
+                    <StackPanel
+                        Grid.Row="1"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Orientation="Vertical">
+                        <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
+                            <TextBox
+                                x:Name="currencyInput"
+                                Grid.Row="1"
+                                Width="30"
+                                Height="20"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                KeyUp="AddCurrency_EnterKey"
+                                MaxLines="1"
+                                Text="CCY" />
+                            <Separator Width="10" Visibility="Hidden" />
+
+                            <Button
+                                Grid.Row="1"
+                                Width="60"
+                                Height="20"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                Click="AddCurrency_Button"
+                                Content="Add" />
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
-                            <Image x:Name="onlineIndicator_Fixer" Source="images\status_red.png" Width="10" Height="10" Margin="5,0,5,0"></Image>
-                            <TextBlock>Fixer</TextBlock>
+                        <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
+                            <Image
+                                x:Name="onlineIndicator_Fixer"
+                                Width="10"
+                                Height="10"
+                                Margin="5,0,5,0"
+                                Source="images\status_red.png" />
+                            <TextBlock>Fixer.io</TextBlock>
                         </StackPanel>
-                        <StackPanel Orientation="Horizontal" >
-                            <Image x:Name="onlineIndicator_Bitfinex" Source="images\status_red.png" Width="10" Height="10" Margin="5,0,5,0"></Image>
-                            <TextBlock>Bitfinex</TextBlock> 
-                        </StackPanel> 
                         <StackPanel Orientation="Horizontal">
-                            <Image x:Name="onlineIndicator_Coinbase" Source="images\status_red.png" Width="10" Height="10" Margin="5,0,5,0"></Image>
-                            <TextBlock>Coinbase</TextBlock> 
-                        </StackPanel> 
-                        <StackPanel Orientation="Horizontal">
-                            <Image x:Name="onlineIndicator_CMC" Source="images\status_red.png" Width="10" Height="10" Margin="5,0,5,0"></Image>
-                            <TextBlock>Coinmarketcap</TextBlock> 
+                            <Image
+                                x:Name="onlineIndicator_Bitfinex"
+                                Width="10"
+                                Height="10"
+                                Margin="5,0,5,0"
+                                Source="images\status_red.png" />
+                            <TextBlock>Bitfinex</TextBlock>
                         </StackPanel>
-                        
+                        <StackPanel Orientation="Horizontal">
+                            <Image
+                                x:Name="onlineIndicator_Coinbase"
+                                Width="10"
+                                Height="10"
+                                Margin="5,0,5,0"
+                                Source="images\status_red.png" />
+                            <TextBlock>Coinbase</TextBlock>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Image
+                                x:Name="onlineIndicator_CMC"
+                                Width="10"
+                                Height="10"
+                                Margin="5,0,5,0"
+                                Source="images\status_red.png" />
+                            <TextBlock>Coinmarketcap</TextBlock>
+                        </StackPanel>
+
                     </StackPanel>
                 </Grid>
             </TabItem>
 
-            <TabItem Name="Change_Currencies" Header="Change"  >
+            <TabItem Name="Change_Currencies" Header="Change">
                 <Grid Background="#FFE5E5E5">
-                    <StackPanel   Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
-                        <StackPanel Orientation="Horizontal" Height="30" Width="380">
-                            <Label x:Name="lbl_currencies_change"  Content="Currencies" HorizontalAlignment="Left" VerticalAlignment="Center" />
-                            <ComboBox Width="60" Height="22" x:Name="ComboBox_ReferenceCurrency" VerticalAlignment="Center" SelectedIndex="0"></ComboBox>
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Orientation="Vertical">
+                        <StackPanel
+                            Width="380"
+                            Height="30"
+                            Orientation="Horizontal">
+                            <Label
+                                x:Name="lbl_currencies_change"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center"
+                                Content="Currencies" />
+                            <ComboBox
+                                x:Name="ComboBox_ReferenceCurrency"
+                                Width="60"
+                                Height="22"
+                                VerticalAlignment="Center"
+                                SelectedIndex="0" />
                         </StackPanel>
-                        <ListView local:GridViewSort.AutoSort="True" x:Name="CurrencyLV" ScrollViewer.HorizontalScrollBarVisibility="Disabled"  HorizontalAlignment="Left" Height="375"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="380">
+                        <ListView
+                            x:Name="CurrencyLV"
+                            Width="380"
+                            Height="375"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            local:GridViewSort.AutoSort="True"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="CCY" Width="40" DisplayMemberBinding="{Binding Currency}" local:GridViewSort.PropertyName="BaseCurrency" />
-                                    <GridViewColumn Header="1h" Width="60" DisplayMemberBinding="{Binding Change1h}" local:GridViewSort.PropertyName="Change1h" />
-                                    <GridViewColumn Header="24h" Width="60" DisplayMemberBinding="{Binding Change24h}" local:GridViewSort.PropertyName="Change24h" />
-                                    <GridViewColumn Header="7d" Width="60" DisplayMemberBinding="{Binding Change7d}" local:GridViewSort.PropertyName="Change7d" />
-                                    <GridViewColumn Header="30d" Width="60" DisplayMemberBinding="{Binding Change30d}" local:GridViewSort.PropertyName="Change30d" />
-                                    <GridViewColumn Header="Age" Width="60" DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}" local:GridViewSort.PropertyName="Date" />
+                                    <GridViewColumn
+                                        Width="40"
+                                        local:GridViewSort.PropertyName="BaseCurrency"
+                                        DisplayMemberBinding="{Binding Currency}"
+                                        Header="CCY" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Change1h"
+                                        DisplayMemberBinding="{Binding Change1h}"
+                                        Header="1h" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Change24h"
+                                        DisplayMemberBinding="{Binding Change24h}"
+                                        Header="24h" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Change7d"
+                                        DisplayMemberBinding="{Binding Change7d}"
+                                        Header="7d" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Change30d"
+                                        DisplayMemberBinding="{Binding Change30d}"
+                                        Header="30d" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Date"
+                                        DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
+                                        Header="Age" />
                                 </GridView>
                             </ListView.View>
                         </ListView>
                     </StackPanel>
                 </Grid>
             </TabItem>
-          
+
             <TabItem Header="Markets">
                 <Grid Background="#FFE5E5E5">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
-                        <Label x:Name="lbl_markets_BitfinexCOM"  Content="BitfinexCOM" VerticalContentAlignment="Center" HorizontalAlignment="Left" Height="30" Width="380" />
-                        <ListView local:GridViewSort.AutoSort="True" x:Name="MarketsLV"  HorizontalAlignment="Left" Height="195"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="380">
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Orientation="Vertical">
+                        <Label
+                            x:Name="lbl_markets_BitfinexCOM"
+                            Width="380"
+                            Height="30"
+                            HorizontalAlignment="Left"
+                            VerticalContentAlignment="Center"
+                            Content="BitfinexCOM" />
+                        <ListView
+                            x:Name="MarketsLV"
+                            Width="380"
+                            Height="195"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            local:GridViewSort.AutoSort="True"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="Pair" Width="60" DisplayMemberBinding="{Binding Pair}" local:GridViewSort.PropertyName="Pair" />
-                                    <GridViewColumn Header="Base" Width="60" DisplayMemberBinding="{Binding BaseCurrency}" local:GridViewSort.PropertyName="BaseCurrency" />
-                                    <GridViewColumn Header="Quote" Width="60" DisplayMemberBinding="{Binding QuoteCurrency}" local:GridViewSort.PropertyName="QuoteCurrency" />
-                                    <GridViewColumn Header="MinAmount" Width="100" DisplayMemberBinding="{Binding Minimum_order_size}" local:GridViewSort.PropertyName="Minimum_order_size" />
-                                    <GridViewColumn Header="Age" Width="50" DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}" local:GridViewSort.PropertyName="Date" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Pair"
+                                        DisplayMemberBinding="{Binding Pair}"
+                                        Header="Pair" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="BaseCurrency"
+                                        DisplayMemberBinding="{Binding BaseCurrency}"
+                                        Header="Base" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="QuoteCurrency"
+                                        DisplayMemberBinding="{Binding QuoteCurrency}"
+                                        Header="Quote" />
+                                    <GridViewColumn
+                                        Width="100"
+                                        local:GridViewSort.PropertyName="Minimum_order_size"
+                                        DisplayMemberBinding="{Binding Minimum_order_size}"
+                                        Header="MinAmount" />
+                                    <GridViewColumn
+                                        Width="50"
+                                        local:GridViewSort.PropertyName="Date"
+                                        DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
+                                        Header="Age" />
                                 </GridView>
                             </ListView.View>
                         </ListView>
-                        <Label x:Name="lbl_markets_BitcoinDE"  Content="BitcoinDE" HorizontalAlignment="Left" Height="30" VerticalContentAlignment="Center" Width="380" />
+                        <Label
+                            x:Name="lbl_markets_BitcoinDE"
+                            Width="380"
+                            Height="30"
+                            HorizontalAlignment="Left"
+                            VerticalContentAlignment="Center"
+                            Content="BitcoinDE" />
 
-                        <ListView local:GridViewSort.AutoSort="True" x:Name="MarketsLVBitcoinDE"  HorizontalAlignment="Left" Height="150"  VerticalAlignment="Center" ScrollViewer.VerticalScrollBarVisibility="Visible" Width="380">
+                        <ListView
+                            x:Name="MarketsLVBitcoinDE"
+                            Width="380"
+                            Height="150"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            local:GridViewSort.AutoSort="True"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible">
                             <ListView.View>
                                 <GridView>
-                                    <GridViewColumn Header="Pair" Width="60" DisplayMemberBinding="{Binding Pair}" local:GridViewSort.PropertyName="Pair" />
-                                    <GridViewColumn Header="Base" Width="60" DisplayMemberBinding="{Binding BaseCurrency}" local:GridViewSort.PropertyName="BaseCurrency" />
-                                    <GridViewColumn Header="Quote" Width="60" DisplayMemberBinding="{Binding QuoteCurrency}" local:GridViewSort.PropertyName="QuoteCurrency" />
-                                    <GridViewColumn Header="MinAmount" Width="100" DisplayMemberBinding="{Binding Minimum_order_size}" local:GridViewSort.PropertyName="Minimum_order_size" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="Pair"
+                                        DisplayMemberBinding="{Binding Pair}"
+                                        Header="Pair" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="BaseCurrency"
+                                        DisplayMemberBinding="{Binding BaseCurrency}"
+                                        Header="Base" />
+                                    <GridViewColumn
+                                        Width="60"
+                                        local:GridViewSort.PropertyName="QuoteCurrency"
+                                        DisplayMemberBinding="{Binding QuoteCurrency}"
+                                        Header="Quote" />
+                                    <GridViewColumn
+                                        Width="100"
+                                        local:GridViewSort.PropertyName="Minimum_order_size"
+                                        DisplayMemberBinding="{Binding Minimum_order_size}"
+                                        Header="MinAmount" />
                                 </GridView>
                             </ListView.View>
                         </ListView>
@@ -149,14 +422,36 @@
             </TabItem>
             <TabItem x:Name="tab_log" Header="Log">
                 <Grid Background="#FFE5E5E5">
-                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Top">
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Orientation="Vertical">
                         <Grid Height="30">
-                            <Label x:Name="LBL_SysLog" HorizontalAlignment="Left" Height="30" VerticalContentAlignment="Center" VerticalAlignment="Top">System Log</Label>
-                            <Button HorizontalAlignment="Right" Height="20"  Click="ClearLog">Clear</Button>
+                            <Label
+                                x:Name="LBL_SysLog"
+                                Height="30"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Top"
+                                VerticalContentAlignment="Center">
+                                System Log
+                            </Label>
+                            <Button
+                                Height="20"
+                                HorizontalAlignment="Right"
+                                Click="ClearLog">
+                                Clear
+                            </Button>
                         </Grid>
-                     
-                        
-                        <TextBox Width="380" Height="375" x:Name="SystemLog" ScrollViewer.VerticalScrollBarVisibility="Visible" HorizontalAlignment="Center" TextWrapping="Wrap" VerticalAlignment="Center" />
+
+
+                        <TextBox
+                            x:Name="SystemLog"
+                            Width="380"
+                            Height="375"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible"
+                            TextWrapping="Wrap" />
                     </StackPanel>
                 </Grid>
             </TabItem>

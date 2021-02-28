@@ -168,18 +168,24 @@ namespace ExchangeRateServer
             Loop_Internet();
             Loop_UptimeAndLoad();
 
-            CheckCMCCurrencies();
+            var t1 = CheckCMCCurrencies();
+            var t2 = CheckFixerCurrencies();
+
             CheckCoinbaseCurrencies();
             CheckBitfinexCurrencies();
-            CheckFixerCurrencies();
 
-            Loop_ExchangeRate_Coinbase();
-            Loop_FixerQuery();
-            Loop_CMCQuery();
+            Task.WhenAll(new Task[] { t1, t2 }).ContinueWith((_) =>
+            {
+                Loop_FixerQuery();
+                Loop_CMCQuery();
+
+                ComboBox_ReferenceCurrency.SelectionChanged += (x, y) => ChangeInReferenceCurrency(x, y);
+            });
+
+            Loop_ExchangeRate();
+
             Loop_Bitfinex_MarketInfo();
             Loop_WebSocketServer();
-
-            ComboBox_ReferenceCurrency.SelectionChanged += (x,y) => ChangeInReferenceCurrency(x,y);
         }
 
         private void InitFlags()
@@ -341,171 +347,183 @@ namespace ExchangeRateServer
 
         // Exchange Rate
 
-        private void Loop_ExchangeRate_Coinbase()
+        private void Loop_ExchangeRate()
         {
             Task.Run(async () =>
             {
-                while (CoinbaseCurrenices.Count == 0) { await Task.Delay(1000); }
+                while (CoinbaseCurrenices.Count == 0 || BitfinexCurrenices.Count == 0) { await Task.Delay(1000); }
 
                 while (true)
                 {
-                    AwaitOnline(Services.Coinbase);
-
-                    try
+                    if (AwaitOnline(Services.Coinbase) && AwaitOnline(Services.Bitfinex))
                     {
-                        foreach (var base_currency in Currencies.ToArray())
+                        try
                         {
-                            if (CoinbaseCurrenices.Contains(base_currency))
+                            foreach (var base_currency in Currencies.ToArray())
                             {
-                                TimeSpan maxAge = default;
-                                if (MAXAGEFIAT2FIATRATE > MAXAGEMIXEDRATE) maxAge = MAXAGEMIXEDRATE;
-                                else maxAge = MAXAGEFIAT2FIATRATE;
-
-                                if (!Rates.Where(x => x.CCY1 == base_currency).Any() || !Rates.Where(x => x.CCY2 == base_currency).Any() || Rates.Where(x => (x.CCY1 == base_currency || x.CCY2 == base_currency) && ((DateTime.Now - x.Date) > maxAge)).Any())
+                                if (CoinbaseCurrenices.Contains(base_currency))
                                 {
-                                    try
-                                    {
-                                        Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Checking [{base_currency}]..."; });
-
-                                        using (WebClient webClient = new WebClient())
-                                        {
-                                            string json = default;
-
-                                            try
-                                            {
-                                                json = webClient.DownloadString($"https://api.coinbase.com/v2/exchange-rates?currency={base_currency}");
-                                            }
-                                            catch
-                                            {
-                                                if (BitfinexCurrenices.Contains(base_currency))
-                                                {
-                                                    await ExchangeRate_Bitfinex(base_currency);
-                                                    continue;
-                                                }
-                                            }
-
-                                            var deserialized = JsonConvert.DeserializeObject<Coinbase_JSON>(json);
-
-                                            foreach (var quote_currency in Currencies.ToArray())
-                                            {
-                                                if (quote_currency != base_currency)
-                                                {
-                                                    if (deserialized.data.Rates.ContainsKey(quote_currency))
-                                                    {
-                                                        if (Rates.ToList().Exists(x => x.CCY1 == base_currency && x.CCY2 == quote_currency)) // Update
-                                                        {
-                                                            var exrEntry = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency).Single();
-
-                                                            exrEntry.Date = DateTime.Now;
-
-                                                            if (FIAT.Contains(quote_currency) && !FIAT.Contains(base_currency))
-                                                            {
-                                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
-                                                            }
-                                                            else
-                                                            {
-                                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
-                                                            }
-
-                                                            Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Checking [{base_currency}]... updated."; });
-
-                                                            if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)].Last().Time)
-                                                            {
-                                                                HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
-
-                                                                if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)][0].Time)
-                                                                {
-                                                                    HistoricRatesLongTerm[(base_currency, quote_currency)].RemoveAt(0);
-                                                                }
-                                                            }
-
-                                                            if ((DateTime.Now - new TimeSpan(0, 1, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)].Last().Time)
-                                                            {
-                                                                HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
-
-                                                                if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)][0].Time)
-                                                                {
-                                                                    HistoricRatesShortTerm[(base_currency, quote_currency)].RemoveAt(0);
-                                                                }
-                                                            }
-                                                        }
-                                                        else // New
-                                                        {
-                                                            var exr = new ExchangeRate()
-                                                            {
-                                                                CCY1 = base_currency,
-                                                                CCY2 = quote_currency,
-                                                                Date = DateTime.Now,
-                                                            };
-
-                                                            if (FIAT.Contains(quote_currency) && !FIAT.Contains(base_currency))
-                                                            {
-                                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
-                                                            }
-                                                            else
-                                                            {
-                                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
-                                                            }
-
-                                                            Dispatcher.Invoke(() =>
-                                                            {
-                                                                Rates.Add(exr);
-                                                                Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
-                                                            });
-
-                                                            log.Information($"New Pair: [{exr.CCY1}/{exr.CCY2}] via Coinbase");
-
-                                                            HistoricRatesLongTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
-
-                                                            HistoricRatesShortTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        await ExchangeRate_Bitfinex(base_currency, true, quote_currency);
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                    catch
-                                    {
-                                        continue;
-                                    }
+                                    await ExchangeRate_Coinbase(base_currency);
                                 }
-                            }
-                            else if (BitfinexCurrenices.Contains(base_currency))
-                            {
-                                await ExchangeRate_Bitfinex(base_currency);
+                                else if (BitfinexCurrenices.Contains(base_currency))
+                                {
+                                    await ExchangeRate_Bitfinex(base_currency);
+                                }
+
+                                await Task.Delay(3000);
                             }
 
-                            await Task.Delay(3000);
+                            Dispatcher.Invoke(() => { ExchangeRateInfo.Text = "Visited all pairs."; });
                         }
-
-                        Dispatcher.Invoke(() => { ExchangeRateInfo.Text = "Visited all pairs."; });
-                    }
-                    catch (Exception ex) when (ex.Message.Contains("429"))
-                    {
-                        log.Error("Too many requests (Coinbase). Throttling...");
-                        await Task.Delay(60000);
-                    }
-                    catch (Exception ex)
-                    {
-                        Dispatcher.Invoke(() =>
+                        catch (Exception ex)
                         {
-                            log.Error($"Error querying Exchange Rate (Coinbase): {ex.Message}");
-                            ExchangeRateInfo.Text = "Error querying Exchange Rate.";
-                        });
+                            log.Error($"Error in Exchange Rate Loop: {ex.Short()}");
+                        }
+                    }
+                    else
+                    {
+                        await Task.Delay(5000);
                     }
                 }
             });
+        }
+
+        private async Task ExchangeRate_Coinbase(string base_currency)
+        {
+            try
+            {
+                TimeSpan maxAge = default;
+                if (MAXAGEFIAT2FIATRATE > MAXAGEMIXEDRATE) maxAge = MAXAGEMIXEDRATE;
+                else maxAge = MAXAGEFIAT2FIATRATE;
+
+                if (!Rates.Where(x => x.CCY1 == base_currency).Any() || !Rates.Where(x => x.CCY2 == base_currency).Any() || Rates.Where(x => (x.CCY1 == base_currency || x.CCY2 == base_currency) && ((DateTime.Now - x.Date) > maxAge)).Any())
+                {
+                    try
+                    {
+                        Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Checking [{base_currency}]..."; });
+
+                        using (WebClient webClient = new WebClient())
+                        {
+                            string json = default;
+
+                            try
+                            {
+                                json = webClient.DownloadString($"https://api.coinbase.com/v2/exchange-rates?currency={base_currency}");
+                            }
+                            catch
+                            {
+                                if (BitfinexCurrenices.Contains(base_currency))
+                                {
+                                    await ExchangeRate_Bitfinex(base_currency);
+                                    return;
+                                }
+                            }
+
+                            var deserialized = JsonConvert.DeserializeObject<Coinbase_JSON>(json);
+
+                            foreach (var quote_currency in Currencies.ToArray())
+                            {
+                                if (quote_currency != base_currency)
+                                {
+                                    if (deserialized.data.Rates.ContainsKey(quote_currency))
+                                    {
+                                        if (Rates.ToList().Exists(x => x.CCY1 == base_currency && x.CCY2 == quote_currency)) // Update
+                                        {
+                                            var exrEntry = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency).Single();
+
+                                            exrEntry.Date = DateTime.Now;
+
+                                            if (FIAT.Contains(quote_currency) && !FIAT.Contains(base_currency))
+                                            {
+                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
+                                            }
+                                            else
+                                            {
+                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
+                                            }
+
+                                            Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Checking [{base_currency}]... updated."; });
+
+                                            if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)].Last().Time)
+                                            {
+                                                HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
+
+                                                if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)][0].Time)
+                                                {
+                                                    HistoricRatesLongTerm[(base_currency, quote_currency)].RemoveAt(0);
+                                                }
+                                            }
+
+                                            if ((DateTime.Now - new TimeSpan(0, 1, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)].Last().Time)
+                                            {
+                                                HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
+
+                                                if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)][0].Time)
+                                                {
+                                                    HistoricRatesShortTerm[(base_currency, quote_currency)].RemoveAt(0);
+                                                }
+                                            }
+                                        }
+                                        else // New
+                                        {
+                                            var exr = new ExchangeRate()
+                                            {
+                                                CCY1 = base_currency,
+                                                CCY2 = quote_currency,
+                                                Date = DateTime.Now,
+                                            };
+
+                                            if (FIAT.Contains(quote_currency) && !FIAT.Contains(base_currency))
+                                            {
+                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
+                                            }
+                                            else
+                                            {
+                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
+                                            }
+
+                                            Dispatcher.Invoke(() =>
+                                            {
+                                                Rates.Add(exr);
+                                                Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
+                                            });
+
+                                            log.Information($"New Pair: [{exr.CCY1}/{exr.CCY2}] via Coinbase");
+
+                                            HistoricRatesLongTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
+
+                                            HistoricRatesShortTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
+                                        }
+                                    }
+                                    else
+                                    {
+                                        await ExchangeRate_Bitfinex(base_currency, true, quote_currency);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        return;
+                    }
+                }
+            }
+            catch (Exception ex) when (ex.Message.Contains("429"))
+            {
+                log.Error("Too many requests (Coinbase). Throttling...");
+                await Task.Delay(60000);
+            }
+            catch (Exception ex)
+            {
+                log.Error($"Error querying Exchange Rate (Coinbase): {ex.Short()}");
+            }
         }
 
         private async Task ExchangeRate_Bitfinex(string base_currency, bool singular = false, string quote_currency = default)
         {
             await Task.Run(async () =>
             {
-                AwaitOnline(Services.Bitfinex);
                 try
                 {
                     if (singular == false)
@@ -742,12 +760,13 @@ namespace ExchangeRateServer
 
             Task.Run(async () =>
             {
+                await Task.Delay(5000);
+
                 while (true)
                 {
                     try
                     {
                         CMC_Query();
-                     
                     }
                     finally
                     {
@@ -868,6 +887,8 @@ namespace ExchangeRateServer
 
             Task.Run(async () =>
             {
+                await Task.Delay(5000);
+
                 while (true)
                 {
                     try
@@ -1184,144 +1205,144 @@ namespace ExchangeRateServer
             });
         }
 
-        private void CheckCMCCurrencies()
+        private Task CheckCMCCurrencies()
         {
-            Task.Run(async () =>
-            {
-                int failCounter = 0;
-                while (failCounter < 10)
-                {
-                    AwaitOnline(Services.CMC);
+            return Task.Run(async () =>
+                 {
+                     int failCounter = 0;
+                     while (failCounter < 10)
+                     {
+                         AwaitOnline(Services.CMC);
 
-                    int ctr = 0;
+                         int ctr = 0;
 
-                    try
-                    {
-                        CMCCurrenicesFIAT.Clear();
-                        CMCCurrenicesCrypto.Clear();
+                         try
+                         {
+                             CMCCurrenicesFIAT.Clear();
+                             CMCCurrenicesCrypto.Clear();
 
-                        using (var client = new WebClient())
-                        {
-                            client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
-                            client.Headers.Add("Accepts", "application/json");
+                             using (var client = new WebClient())
+                             {
+                                 client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
+                                 client.Headers.Add("Accepts", "application/json");
 
-                            {
-                                var json = client.DownloadString("https://pro-api.coinmarketcap.com/v1/fiat/map");
+                                 {
+                                     var json = client.DownloadString("https://pro-api.coinmarketcap.com/v1/fiat/map");
 
-                                var currencies = JsonConvert.DeserializeObject<CMC_Currencies_JSON>(json);
+                                     var currencies = JsonConvert.DeserializeObject<CMC_Currencies_JSON>(json);
 
-                                foreach (var fiat in currencies.data)
-                                {
-                                    if (!CMCCurrenicesFIAT.Contains(fiat.symbol))
-                                    {
-                                        ctr++;
-                                        CMCCurrenicesFIAT.Add(fiat.symbol);
-                                    }
-                                }
-                            }
+                                     foreach (var fiat in currencies.data)
+                                     {
+                                         if (!CMCCurrenicesFIAT.Contains(fiat.symbol))
+                                         {
+                                             ctr++;
+                                             CMCCurrenicesFIAT.Add(fiat.symbol);
+                                         }
+                                     }
+                                 }
 
-                            CMCCurrenicesFIAT.OrderBy(x => x);
-                        }
+                                 CMCCurrenicesFIAT.OrderBy(x => x);
+                             }
 
-                        using (var client = new WebClient())
-                        {
-                            client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
-                            client.Headers.Add("Accepts", "application/json");
-                            {
-                                var json = client.DownloadString("https://pro-api.coinmarketcap.com/v1/cryptocurrency/map");
+                             using (var client = new WebClient())
+                             {
+                                 client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
+                                 client.Headers.Add("Accepts", "application/json");
+                                 {
+                                     var json = client.DownloadString("https://pro-api.coinmarketcap.com/v1/cryptocurrency/map");
 
-                                var currencies = JsonConvert.DeserializeObject<CMC_Currencies_JSON>(json);
+                                     var currencies = JsonConvert.DeserializeObject<CMC_Currencies_JSON>(json);
 
-                                foreach (var crypto in currencies.data)
-                                {
-                                    if (!CMCCurrenicesCrypto.Contains(crypto.symbol))
-                                    {
-                                        ctr++;
-                                        CMCCurrenicesCrypto.Add(crypto.symbol);
-                                    }
-                                }
-                            }
+                                     foreach (var crypto in currencies.data)
+                                     {
+                                         if (!CMCCurrenicesCrypto.Contains(crypto.symbol))
+                                         {
+                                             ctr++;
+                                             CMCCurrenicesCrypto.Add(crypto.symbol);
+                                         }
+                                     }
+                                 }
 
-                            CMCCurrenicesCrypto.OrderBy(x => x);
-                        }
+                                 CMCCurrenicesCrypto.OrderBy(x => x);
+                             }
 
-                        log.Information($"Found {ctr} Currencies at CMC.");
+                             log.Information($"Found {ctr} Currencies at CMC.");
 
-                        Dispatcher.Invoke(() =>
-                        {
-                            ComboBox_ReferenceCurrency.ItemsSource = CMCCurrenicesFIAT.Intersect(FixerCurrencies);
+                             Dispatcher.Invoke(() =>
+                             {
+                                 ComboBox_ReferenceCurrency.ItemsSource = CMCCurrenicesFIAT.Intersect(FixerCurrencies);
 
-                            if (REFERENCECURRENCY != null)
-                            {
-                                var idx = CMCCurrenicesFIAT.IndexOf(REFERENCECURRENCY);
+                                 if (REFERENCECURRENCY != null)
+                                 {
+                                     var idx = CMCCurrenicesFIAT.IndexOf(REFERENCECURRENCY);
 
-                                if (idx != -1)
-                                {
-                                    ComboBox_ReferenceCurrency.SelectedIndex = idx;
-                                }
-                            }
-                        });
+                                     if (idx != -1)
+                                     {
+                                         ComboBox_ReferenceCurrency.SelectedIndex = idx;
+                                     }
+                                 }
+                             });
 
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        failCounter++;
-                        log.Information($"Error querying CMC currencies: {ex.Message}");
-                        await Task.Delay(5000 * failCounter);
-                    }
-                }
-            });
+                             break;
+                         }
+                         catch (Exception ex)
+                         {
+                             failCounter++;
+                             log.Information($"Error querying CMC currencies: {ex.Message}");
+                             await Task.Delay(5000 * failCounter);
+                         }
+                     }
+                 });
         }
 
-        private void CheckFixerCurrencies()
+        private Task CheckFixerCurrencies()
         {
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    AwaitOnline(Services.Fixer);
+            return Task.Run(async () =>
+             {
+                 while (true)
+                 {
+                     AwaitOnline(Services.Fixer);
 
-                    try
-                    {
-                        using (WebClient webclient = new WebClient())
-                        {
-                            var json = webclient.DownloadString($"http://data.fixer.io/api/symbols?access_key={FIXERAPIKEY}");
+                     try
+                     {
+                         using (WebClient webclient = new WebClient())
+                         {
+                             var json = webclient.DownloadString($"http://data.fixer.io/api/symbols?access_key={FIXERAPIKEY}");
 
-                            json = json.Remove(0, json.IndexOf(":{") + 2);
-                            json = json.Remove(json.IndexOf("}}"));
+                             json = json.Remove(0, json.IndexOf(":{") + 2);
+                             json = json.Remove(json.IndexOf("}}"));
 
-                            var split = json.Split(new char[] { ',', ':' }, StringSplitOptions.RemoveEmptyEntries);
+                             var split = json.Split(new char[] { ',', ':' }, StringSplitOptions.RemoveEmptyEntries);
 
-                            FixerCurrencies = split.Where(x => x.Length == 5).Select(x => x.Trim('"')).ToList();
-                        }
+                             FixerCurrencies = split.Where(x => x.Length == 5).Select(x => x.Trim('"')).ToList();
+                         }
 
-                        log.Information($"Found {FixerCurrencies.Count} Currencies at Fixer.io");
+                         log.Information($"Found {FixerCurrencies.Count} Currencies at Fixer.io");
 
-                        Dispatcher.Invoke(() =>
-                        {
-                            ComboBox_ReferenceCurrency.ItemsSource = FixerCurrencies.Intersect(CMCCurrenicesFIAT);
+                         Dispatcher.Invoke(() =>
+                         {
+                             ComboBox_ReferenceCurrency.ItemsSource = FixerCurrencies.Intersect(CMCCurrenicesFIAT);
 
-                            if (REFERENCECURRENCY != null)
-                            {
-                                var idx = FixerCurrencies.IndexOf(REFERENCECURRENCY);
+                             if (REFERENCECURRENCY != null)
+                             {
+                                 var idx = FixerCurrencies.IndexOf(REFERENCECURRENCY);
 
-                                if (idx != -1)
-                                {
-                                    ComboBox_ReferenceCurrency.SelectedIndex = idx;
-                                }
-                            }
-                        });
+                                 if (idx != -1)
+                                 {
+                                     ComboBox_ReferenceCurrency.SelectedIndex = idx;
+                                 }
+                             }
+                         });
 
-                        break;
-                    }
-                    catch (Exception ex)
-                    {
-                        log.Information($"Error querying Fixer.io currencies: {ex.Short()}");
-                        await Task.Delay(10000);
-                    }
-                }
-            });
+                         break;
+                     }
+                     catch (Exception ex)
+                     {
+                         log.Information($"Error querying Fixer.io currencies: {ex.Short()}");
+                         await Task.Delay(10000);
+                     }
+                 }
+             });
         }
 
         // WSS Server
@@ -1719,13 +1740,10 @@ namespace ExchangeRateServer
 
         private void ChangeInReferenceCurrency(object sender, SelectionChangedEventArgs e)
         {
-            if (IsLoaded && IsInitialized)
-            {
-                CMC_Query(true);
-                Fixer_Query(true);
+            CMC_Query(true);
+            Fixer_Query(true);
 
-                log.Information($"Changed Reference Currency to [{ComboBox_ReferenceCurrency.SelectedItem as string}].");
-            }
+            log.Information($"Changed Reference Currency to [{ComboBox_ReferenceCurrency.SelectedItem as string}].");
         }
 
         private void VPNTaskBarIcon_TrayMouseDoubleClick(object sender, RoutedEventArgs e)
