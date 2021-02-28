@@ -1,9 +1,8 @@
 # CryptoExchangeRateServer
 
-Exchange Rate Server for Cryptocurrencies (Using Bitfinex, Coinmarketcap API and Coinbase API)
+Exchange Rate Server for Cryptocurrencies (Using the FREE plans of Fixer.IO API, Bitfinex API, Coinmarketcap API and Coinbase API)
 
-
-<img src="flow.PNG">
+<img src="flow.png">
 
 ## Built with .NET 4.7.2 on WPF
 
@@ -18,7 +17,7 @@ To add a new Currency via a Websocket Client *CURRENCY.CURRENCY* (e.g. CURRENCY.
 
 To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HISTORY.CHF) to the WebSocket Server.
 
-<img src="1.PNG" width="350">
+<img src="active.png" width="350">
 <img src="2.PNG" width="350">
 
 ## Sample JSON Websocket Server Cast
@@ -27,6 +26,7 @@ To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HI
 
 ## Modify Settings by editing the *config.txt* with the following entries
 
+      FIXERAPIKEY=yourapikey
       CMCAPIKEY=yourapikey
       WSSENDPOINT=/yourendpoint
       REFERENCECURRENCY=EUR
