@@ -1,6 +1,5 @@
 ﻿using Newtonsoft.Json;
 using Serilog;
-using Serilog.Core;
 using Serilog.Events;
 using System;
 using System.Collections.Generic;
@@ -12,31 +11,17 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.NetworkInformation;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using WebSocketSharp;
 using WebSocketSharp.Server;
 
 namespace ExchangeRateServer
 {
-    internal enum Services
-    {
-        Fixer = 0,
-        CMC = 1,
-        Bitfinex = 2,
-        Coinbase = 3
-    }
-
     public partial class MainWindow : Window
     {
         internal ILogger log;
@@ -47,21 +32,23 @@ namespace ExchangeRateServer
 
         private bool cmcQuery;
         private bool fixerQuery;
+        private bool justAdded;
 
         private bool online;
         private bool isCurrentlyUpdatingActivity;
+
         private object newCurrencyLock = new object();
         private object sendHistoryLock = new object();
-
-        private readonly System.Timers.Timer autoRefresh = new System.Timers.Timer(1000) { Enabled = true, AutoReset = true };
+        private object currencyChangeLock = new object();
 
         internal WebSocketServer wssv;
         internal ObservableCollection<ExchangeRate> Rates = new ObservableCollection<ExchangeRate>();
+        internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
+
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesLongTerm = new Dictionary<(string, string), List<TimeData>>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesShortTerm = new Dictionary<(string, string), List<TimeData>>();
 
         internal ObservableCollection<MarketInfo> BitfinexCOMMarkets = new ObservableCollection<MarketInfo>();
-
         internal ObservableCollection<MarketInfo> BitcoinDEMarkets = new ObservableCollection<MarketInfo>()
         { new MarketInfo() { Pair = "btceur", Minimum_order_size = 60 },
             new MarketInfo() { Pair = "etheur", Minimum_order_size = 60 },
@@ -69,8 +56,6 @@ namespace ExchangeRateServer
             new MarketInfo() { Pair = "bsveur", Minimum_order_size = 60 },
             new MarketInfo() { Pair = "ltceur", Minimum_order_size = 60 },
             new MarketInfo() { Pair = "bcheur", Minimum_order_size = 60 } };
-
-        internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
 
         private string CMCAPIKEY;
         private string FIXERAPIKEY;
@@ -82,13 +67,14 @@ namespace ExchangeRateServer
         private TimeSpan MAXAGEMIXEDRATE = new TimeSpan(0, 0, 30);
 
         private List<string> Currencies = new List<string>() { "USD", "EUR", "BTC", "ETH" };
-        private readonly List<string> FIAT = new List<string>() { "USD", "EUR", "JPY", "CAD", "GBP", "CNY", "NZD", "AUD", "CHF" };
 
         private List<string> CoinbaseCurrenices = new List<string>();
         private List<string> BitfinexCurrenices = new List<string>();
         private List<string> CMCCurrenicesFIAT = new List<string>();
         private List<string> CMCCurrenicesCrypto = new List<string>();
         private List<string> FixerCurrencies = new List<string>();
+
+        private readonly System.Timers.Timer autoRefresh = new System.Timers.Timer(1000) { Enabled = true, AutoReset = true };
 
         public MainWindow()
         {
@@ -116,8 +102,6 @@ namespace ExchangeRateServer
                     MarketsLV.ItemsSource = BitfinexCOMMarkets;
                     CurrencyLV.ItemsSource = null;
                     CurrencyLV.ItemsSource = CurrenciesChange;
-
-                    ;
 
                     if (CountHistoricRate(out int count_short, out int count_long) == (0, 0))
                     {
@@ -160,9 +144,6 @@ namespace ExchangeRateServer
                 }
             };
 
-            MarketsLVBitcoinDE.ItemsSource = BitcoinDEMarkets;
-            lbl_markets_BitcoinDE.Content = $"BitcoinDE ({BitcoinDEMarkets.Count})";
-
             // Loops
 
             Loop_Internet();
@@ -181,25 +162,33 @@ namespace ExchangeRateServer
                 Loop_CMCQuery();
 
                 ComboBox_ReferenceCurrency.SelectionChanged += (x, y) => ChangeInReferenceCurrency(x, y);
-
-                if (App.flag_markets)
-                {
-                    Dispatcher.Invoke(() =>  Tab_Markets.Visibility = Visibility.Visible);
-                   
-                    Loop_Bitfinex_MarketInfo();
-                }
             });
 
             Loop_ExchangeRate();
-
         }
 
         private void InitFlags()
         {
-            Dispatcher.Invoke(() =>
+            if (!App.flag_log)
             {
-                if (!App.flag_log) Tab_Log.Visibility = Visibility.Collapsed;
-            });
+                Dispatcher.Invoke(() =>
+                {
+                    Tab_Log.Visibility = Visibility.Collapsed;
+                });
+            }
+
+            if (App.flag_markets)
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    Tab_Markets.Visibility = Visibility.Visible;
+
+                    MarketsLVBitcoinDE.ItemsSource = BitcoinDEMarkets;
+                    lbl_markets_BitcoinDE.Content = $"BitcoinDE ({BitcoinDEMarkets.Count})";
+                });
+
+                Loop_Bitfinex_MarketInfo();
+            }
         }
 
         private void InitConfig()
@@ -442,7 +431,7 @@ namespace ExchangeRateServer
 
                                             exrEntry.Date = DateTime.Now;
 
-                                            if (FIAT.Contains(quote_currency) && !FIAT.Contains(base_currency))
+                                            if (Res.FIAT.Contains(quote_currency) && !Res.FIAT.Contains(base_currency))
                                             {
                                                 exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
                                             }
@@ -482,7 +471,7 @@ namespace ExchangeRateServer
                                                 Date = DateTime.Now,
                                             };
 
-                                            if (FIAT.Contains(quote_currency) && !FIAT.Contains(base_currency))
+                                            if (Res.FIAT.Contains(quote_currency) && !Res.FIAT.Contains(base_currency))
                                             {
                                                 exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
                                             }
@@ -547,7 +536,7 @@ namespace ExchangeRateServer
                                 if (rate != default) // Update
                                 {
                                     TimeSpan maxAge = default;
-                                    if (FIAT.Contains(base_currency) && FIAT.Contains(quote_currency_)) maxAge = MAXAGEFIAT2FIATRATE;
+                                    if (Res.FIAT.Contains(base_currency) && Res.FIAT.Contains(quote_currency_)) maxAge = MAXAGEFIAT2FIATRATE;
                                     else maxAge = MAXAGEMIXEDRATE;
 
                                     if ((DateTime.Now - rate.Date) > maxAge)
@@ -625,7 +614,7 @@ namespace ExchangeRateServer
                         if (rate != default) // Update
                         {
                             TimeSpan maxAge = default;
-                            if (FIAT.Contains(base_currency) && FIAT.Contains(quote_currency)) maxAge = MAXAGEFIAT2FIATRATE;
+                            if (Res.FIAT.Contains(base_currency) && Res.FIAT.Contains(quote_currency)) maxAge = MAXAGEFIAT2FIATRATE;
                             else maxAge = MAXAGEMIXEDRATE;
 
                             if ((DateTime.Now - rate.Date) > maxAge)
@@ -724,7 +713,7 @@ namespace ExchangeRateServer
 
                     using (StreamReader sRead = new StreamReader(resp.GetResponseStream()))
                     {
-                        if (FIAT.Contains(ccy2) && !FIAT.Contains(ccy1))
+                        if (Res.FIAT.Contains(ccy2) && !Res.FIAT.Contains(ccy1))
                         {
                             result = Ext.TruncateDecimal(decimal.Parse(sRead.ReadToEnd().Trim('[').Trim(']'), new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
                         }
@@ -779,7 +768,7 @@ namespace ExchangeRateServer
                     }
                     finally
                     {
-                        await Task.Delay(300000); // 5min
+                        await Task.Delay(new TimeSpan(0, 5, 0)); // 5min
                     }
                 }
             });
@@ -825,7 +814,7 @@ namespace ExchangeRateServer
 
                         json = json.Replace("\"quote\":{\"" + $"{reference}" + "\"", "\"quote\":{\"Currency\"");
 
-                        CMC_JSON cmc = JsonConvert.DeserializeObject<CMC_JSON>(json);
+                        CMC_Change_JSON cmc = JsonConvert.DeserializeObject<CMC_Change_JSON>(json);
 
                         Dispatcher.Invoke(() =>
                         {
@@ -844,15 +833,18 @@ namespace ExchangeRateServer
 
                                 var entry = CurrenciesChange.Where(x => x.Currency == temp.Currency).SingleOrDefault();
 
-                                if (entry == default)
+                                lock (currencyChangeLock)
                                 {
-                                    CurrenciesChange.Add(temp);
-                                }
-                                else
-                                {
-                                    CurrenciesChange.Remove(entry);
+                                    if (entry == default)
+                                    {
+                                        CurrenciesChange.Add(temp);
+                                    }
+                                    else
+                                    {
+                                        CurrenciesChange.Remove(entry);
 
-                                    CurrenciesChange.Add(temp);
+                                        CurrenciesChange.Add(temp);
+                                    }
                                 }
                             }
 
@@ -1003,15 +995,18 @@ namespace ExchangeRateServer
 
                         await Dispatcher.InvokeAsync(() =>
                         {
-                            if (entry == default)
+                            lock (currencyChangeLock)
                             {
-                                CurrenciesChange.Add(temp);
-                            }
-                            else
-                            {
-                                CurrenciesChange.Remove(entry);
+                                if (entry == default)
+                                {
+                                    CurrenciesChange.Add(temp);
+                                }
+                                else
+                                {
+                                    CurrenciesChange.Remove(entry);
 
-                                CurrenciesChange.Add(temp);
+                                    CurrenciesChange.Add(temp);
+                                }
                             }
                         });
                     }
@@ -1401,7 +1396,7 @@ namespace ExchangeRateServer
                                 currencies = Currencies,
                                 currencies_change = CurrenciesChange?.ToList(),
                                 rates = Rates?.ToList(),
-                                markets = App.flag_markets ? new Dictionary<string, List<MarketInfo>>() { { "Bitfinex", BitfinexCOMMarkets?.ToList() }, { "BitcoinDE", BitcoinDEMarkets?.ToList() } } : null
+                                markets = !App.flag_markets ? null : new Dictionary<string, List<MarketInfo>>() { { "Bitfinex", BitfinexCOMMarkets?.ToList() }, { "BitcoinDE", BitcoinDEMarkets?.ToList() } }
                             }));
                         });
                     }
@@ -1525,8 +1520,18 @@ namespace ExchangeRateServer
                                 wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
                             }
 
-                            CMC_Query();
-                            Fixer_Query();
+                            Task.Run(async () =>
+                            {
+                                if (justAdded) return;
+                                else justAdded = true;
+
+                                await Task.Delay(5000);
+
+                                CMC_Query();
+                                Fixer_Query();
+
+                                justAdded = false;
+                            });
 
                             return;
                         }
@@ -1790,532 +1795,6 @@ namespace ExchangeRateServer
         private void QuitApplication(object sender, RoutedEventArgs e)
         {
             App.Current.Shutdown();
-        }
-    }
-
-    // EXR Klassen
-
-    public struct TimeData
-    {
-        public DateTime Time { get; set; }
-        public double Rate { get; set; }
-    }
-
-    [Serializable]
-    public class ExchangeRate : INotifyPropertyChanged
-    {
-        private string ccy1;
-        private string ccy2;
-        private decimal rate;
-        private DateTime date;
-
-        public string CCY1 { get { return ccy1; } set { if (value != ccy1) { ccy1 = value; NotifyPropertyChanged(); } } }
-        public string CCY2 { get { return ccy2; } set { if (value != ccy2) { ccy2 = value; NotifyPropertyChanged(); } } }
-        public decimal Rate { get { return rate; } set { if (value != rate) { rate = value; NotifyPropertyChanged(); } } }
-        public DateTime Date { get { return date; } set { if (value != date) { date = value; NotifyPropertyChanged(); } } }
-
-        [field: NonSerialized]
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
-        {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-        }
-    }
-
-    public class ExchangeRateServerInfo
-    {
-        public enum ExRateInfoType
-        {
-            Rates = 1,
-            History = 2,
-            NewCurrency = 3,
-        }
-
-        public ExRateInfoType info;
-        public List<ExchangeRate> rates;
-        public Dictionary<string, List<MarketInfo>> markets;
-        public List<MarketInfo> bitfinexCOMmarkets;
-        public List<MarketInfo> bitcoinDEmarkets;
-        public List<Change> currencies_change;
-        public List<string> currencies;
-
-        public string newCurrency;
-        public History history;
-
-        public bool success;
-        public string message;
-
-        public class History
-        {
-            public string ccy1;
-            public string ccy2;
-            public List<TimeData> historyShort;
-            public List<TimeData> historyLong;
-        }
-    }
-
-    public class ExchangeRateWSS : WebSocketBehavior
-    {
-        private object newMessageLock = new object();
-
-        private MainWindow Main;
-
-        public ExchangeRateWSS(MainWindow main)
-        {
-            Main = main;
-        }
-
-        protected override void OnMessage(MessageEventArgs e)
-        {
-            try
-            {
-                lock (newMessageLock)
-                {
-                    if (e.Data.StartsWith("HISTORY")) // HISTORY.BTC.EUR
-                    {
-                        var data = e.Data.ToUpper().Split('.');
-                        if (data.Length == 3) Main.WSS_History(data[1], data[2]);
-                        else Main.WSS_History(data[1], "EUR");
-
-                        Main.Dispatcher.Invoke(() =>
-                        {
-                            Main.ExchangeRateInfo.Text = $"Request for Historic Data on [{data[1]}/{data[2]}] received.";
-                        });
-                    }
-                    else if (e.Data.StartsWith("CURRENCY")) // CURRENCY.BTC
-                    {
-                        var data = e.Data.ToUpper().Split('.');
-
-                        Main.Dispatcher.Invoke(() =>
-                        {
-                            Main.currencyInput.Text = data[1];
-                            Main.ExchangeRateInfo.Text = $"Verifying addition of {data[1]} ...";
-                        });
-
-                        Main.WSS_AddCurrency(data[1]);
-                    }
-                    else
-                    {
-                        Main.log.Information($"Unable to process '{e.Data}'");
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                Main.log.Error($"Error handling OnMessage Event of WSS Server:\n{ex}");
-            }
-        }
-
-        protected override void OnOpen()
-        {
-            Main.Dispatcher.Invoke(() =>
-            {
-                Main.ExchangeRateInfo.Text = "Client connected.";
-            });
-        }
-
-        protected override void OnClose(CloseEventArgs e)
-        {
-            Main.Dispatcher.Invoke(() =>
-            {
-                Main.ExchangeRateInfo.Text = $"Client disconnected: {e.Reason} ({e.Code}) Clean: {e.WasClean}";
-            });
-        }
-    }
-
-    public class Change
-    {
-        public string Reference { get; set; }
-        public string Currency { get; set; }
-        public double Change1h { get; set; }
-        public double Change24h { get; set; }
-        public double Change7d { get; set; }
-        public double Change30d { get; set; }
-        public DateTime Date { get; set; }
-    }
-
-    public class MarketInfo
-    {
-        private string pair;
-
-        public string Pair
-        {
-            get { return pair; }
-            set
-            {
-                try
-                {
-                    pair = value.ToUpper();
-                    BaseCurrency = value.Substring(0, 3).ToUpper();
-                    QuoteCurrency = value.Substring(3).ToUpper();
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"Could not parse Market Info: {value} | {ex.Message}");
-                }
-            }
-        }
-
-        public string BaseCurrency { get; set; }
-        public string QuoteCurrency { get; set; }
-        public decimal Minimum_order_size { get; set; }
-        public DateTime Date { get; set; }
-    }
-
-    public class CMC_JSON
-    {
-        public Dictionary<string, Data> data { get; set; }
-
-        public class Data
-        {
-            public string symbol { get; set; }
-            public Quote quote { get; set; }
-        }
-
-        public class Quote
-        {
-            public Currency currency { get; set; }
-
-            public class Currency
-            {
-                public double percent_change_1h { get; set; }
-                public double percent_change_24h { get; set; }
-                public double percent_change_7d { get; set; }
-                public double percent_change_30d { get; set; }
-            }
-        }
-    }
-
-    public class CMC_Currencies_JSON
-    {
-        public class Data
-        {
-            public string symbol { get; set; }
-        }
-
-        public List<Data> data { get; set; }
-    }
-
-    public class Coinbase_JSON
-    {
-        [JsonProperty("data")]
-        public Data data { get; set; }
-
-        public class Data
-        {
-            [JsonProperty("currency")]
-            public string Currency { get; set; }
-
-            [JsonProperty("rates")]
-            public Dictionary<string, string> Rates { get; set; }
-        }
-    }
-
-    public class Coinbase_Currencies_JSON
-    {
-        [JsonProperty("data")]
-        public Data[] data { get; set; }
-
-        public string id { get; set; }
-
-        public class Data
-        {
-            [JsonProperty("id")]
-            public string Id { get; set; }
-        }
-    }
-
-    public class Fixer_JSON
-    {
-        [JsonProperty("base")]
-        public string Base { get; set; }
-
-        [JsonProperty("date")]
-        public DateTimeOffset Date { get; set; }
-
-        [JsonProperty("rates")]
-        public Dictionary<string, double> Rates { get; set; }
-    }
-
-    // Converter
-
-    public class TimeSinceLastUpdate : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (((DateTime)value).Year == 1900) return " ";
-
-            var t = DateTime.Now - (DateTime)value;
-
-            string result;
-            if (t.Minutes > 0)
-            {
-                result = string.Format("{0}m {1}s", t.Minutes, t.Seconds);
-            }
-            else
-            {
-                result = string.Format("{1}s", t.Minutes, t.Seconds);
-            }
-
-            return result;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return default;
-        }
-    }
-
-    // Res + Ext
-
-    public static class Res
-    {
-        public static readonly BitmapImage Red = new BitmapImage(new Uri(@"images\status_red.png", UriKind.Relative));
-        public static readonly BitmapImage Yellow = new BitmapImage(new Uri(@"images\status_yellow.png", UriKind.Relative));
-        public static readonly BitmapImage Green = new BitmapImage(new Uri(@"images\status_green.png", UriKind.Relative));
-        public static readonly System.Drawing.Icon On = new System.Drawing.Icon(@"images\green.ico");
-        public static readonly System.Drawing.Icon Off = new System.Drawing.Icon(@"images\red.ico");
-        public static readonly System.Drawing.Icon Connected = new System.Drawing.Icon(@"images\yellow.ico");
-    }
-
-    public static class Ext
-    {
-        public static string Short(this Exception ex) => ex.Message + ex.ToString().Remove(0, ex.ToString().IndexOf(":line"));
-
-        public static void FileCheck(string filename)
-        {
-            if (!File.Exists(filename)) using (File.Create(filename)) { };
-            FileInfo fileInfo = new FileInfo(filename);
-            if (fileInfo.Length > 262144) { fileInfo.Delete(); using (File.Create(filename)) { }; }
-        }
-
-        [DllImport("wininet.dll")]
-        internal extern static bool InternetGetConnectedState(out int Val, int ReservedValue);
-
-        public static decimal TruncateDecimal(decimal value, int precision)
-        {
-            decimal step = (decimal)Math.Pow(10, precision);
-            decimal tmp = Math.Truncate(step * value);
-            return tmp / step;
-        }
-    }
-
-    // Third Party
-
-    public class GridViewSort
-    {
-        #region Attached properties
-
-        public static ICommand GetCommand(DependencyObject obj)
-        {
-            return (ICommand)obj.GetValue(CommandProperty);
-        }
-
-        public static void SetCommand(DependencyObject obj, ICommand value)
-        {
-            obj.SetValue(CommandProperty, value);
-        }
-
-        // Using a DependencyProperty as the backing store for Command.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty CommandProperty =
-            DependencyProperty.RegisterAttached(
-                "Command",
-                typeof(ICommand),
-                typeof(GridViewSort),
-                new UIPropertyMetadata(
-                    null,
-                    (o, e) =>
-                    {
-                        ItemsControl listView = o as ItemsControl;
-                        if (listView != null)
-                        {
-                            if (!GetAutoSort(listView)) // Don't change click handler if AutoSort enabled
-                            {
-                                if (e.OldValue != null && e.NewValue == null)
-                                {
-                                    listView.RemoveHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(ColumnHeader_Click));
-                                }
-                                if (e.OldValue == null && e.NewValue != null)
-                                {
-                                    listView.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(ColumnHeader_Click));
-                                }
-                            }
-                        }
-                    }
-                )
-            );
-
-        public static bool GetAutoSort(DependencyObject obj)
-        {
-            return (bool)obj.GetValue(AutoSortProperty);
-        }
-
-        public static void SetAutoSort(DependencyObject obj, bool value)
-        {
-            obj.SetValue(AutoSortProperty, value);
-        }
-
-        // Using a DependencyProperty as the backing store for AutoSort.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty AutoSortProperty =
-            DependencyProperty.RegisterAttached(
-                "AutoSort",
-                typeof(bool),
-                typeof(GridViewSort),
-                new UIPropertyMetadata(
-                    false,
-                    (o, e) =>
-                    {
-                        ListView listView = o as ListView;
-                        if (listView != null)
-                        {
-                            if (GetCommand(listView) == null) // Don't change click handler if a command is set
-                            {
-                                bool oldValue = (bool)e.OldValue;
-                                bool newValue = (bool)e.NewValue;
-                                if (oldValue && !newValue)
-                                {
-                                    listView.RemoveHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(ColumnHeader_Click));
-                                }
-                                if (!oldValue && newValue)
-                                {
-                                    listView.AddHandler(GridViewColumnHeader.ClickEvent, new RoutedEventHandler(ColumnHeader_Click));
-                                }
-                            }
-                        }
-                    }
-                )
-            );
-
-        public static string GetPropertyName(DependencyObject obj)
-        {
-            return (string)obj.GetValue(PropertyNameProperty);
-        }
-
-        public static void SetPropertyName(DependencyObject obj, string value)
-        {
-            obj.SetValue(PropertyNameProperty, value);
-        }
-
-        // Using a DependencyProperty as the backing store for PropertyName.  This enables animation, styling, binding, etc...
-        public static readonly DependencyProperty PropertyNameProperty =
-            DependencyProperty.RegisterAttached(
-                "PropertyName",
-                typeof(string),
-                typeof(GridViewSort),
-                new UIPropertyMetadata(null)
-            );
-
-        #endregion Attached properties
-
-        #region Column header click event handler
-
-        private static void ColumnHeader_Click(object sender, RoutedEventArgs e)
-        {
-            GridViewColumnHeader headerClicked = e.OriginalSource as GridViewColumnHeader;
-            if (headerClicked != null)
-            {
-                string propertyName = GetPropertyName(headerClicked.Column);
-                if (!string.IsNullOrEmpty(propertyName))
-                {
-                    ListView listView = GetAncestor<ListView>(headerClicked);
-                    if (listView != null)
-                    {
-                        ICommand command = GetCommand(listView);
-                        if (command != null)
-                        {
-                            if (command.CanExecute(propertyName))
-                            {
-                                command.Execute(propertyName);
-                            }
-                        }
-                        else if (GetAutoSort(listView))
-                        {
-                            ApplySort(listView.Items, propertyName);
-                        }
-                    }
-                }
-            }
-        }
-
-        #endregion Column header click event handler
-
-        #region Helper methods
-
-        public static T GetAncestor<T>(DependencyObject reference) where T : DependencyObject
-        {
-            DependencyObject parent = VisualTreeHelper.GetParent(reference);
-            while (!(parent is T))
-            {
-                parent = VisualTreeHelper.GetParent(parent);
-            }
-            if (parent != null)
-                return (T)parent;
-            else
-                return null;
-        }
-
-        public static void ApplySort(ICollectionView view, string propertyName)
-        {
-            ListSortDirection direction = ListSortDirection.Ascending;
-            if (view.SortDescriptions.Count > 0)
-            {
-                SortDescription currentSort = view.SortDescriptions[0];
-                if (currentSort.PropertyName == propertyName)
-                {
-                    if (currentSort.Direction == ListSortDirection.Ascending)
-                        direction = ListSortDirection.Descending;
-                    else
-                        direction = ListSortDirection.Ascending;
-                }
-                view.SortDescriptions.Clear();
-            }
-            if (!string.IsNullOrEmpty(propertyName))
-            {
-                view.SortDescriptions.Add(new SortDescription(propertyName, direction));
-            }
-        }
-
-        #endregion Helper methods
-    }
-
-    public class SysWsLog : ILogEventSink
-    {
-        private MainWindow Main;
-
-        private object fileAccessLock_syslog = new object();
-
-        public SysWsLog(MainWindow main)
-        {
-            Main = main;
-        }
-
-        public void Emit(LogEvent logEvent)
-        {
-            if (App.flag_log)
-            {
-                Main.Dispatcher.Invoke(() =>
-                {
-                    if (Main.SystemLog.Text.Length > 16384) Main.SystemLog.Text = "";
-                    Main.SystemLog.AppendText(logEvent.RenderMessage() + "\n");
-
-                    Main.LBL_SysLog.Content = $"System Log ({Main.SystemLog.Text.Length})";
-                });
-
-                lock (fileAccessLock_syslog)
-                {
-                    try
-                    {
-                        Ext.FileCheck("syslog.txt");
-
-                        using (var writer = File.AppendText("syslog.txt"))
-                        {
-                            writer.WriteLine(logEvent.Timestamp.ToString("dd-MMM-yy HH:mm:ss", new CultureInfo("de-DE")) + " " + logEvent.RenderMessage());
-                        }
-                    }
-                    catch { }
-                }
-            }
         }
     }
 }

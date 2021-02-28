@@ -98,6 +98,12 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Classes\Definitions.cs" />
+    <Compile Include="Classes\JSON.cs" />
+    <Compile Include="Classes\Logging.cs" />
+    <Compile Include="Classes\Misc.cs" />
+    <Compile Include="Classes\Res.cs" />
+    <Compile Include="Classes\WebSocketServer.cs" />
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
