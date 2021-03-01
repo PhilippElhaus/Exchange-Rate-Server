@@ -10,7 +10,6 @@ namespace ExchangeRateServer
     public partial class App : Application
     {
         public static bool flag_log = false;
-        public static bool flag_markets = false;
 
         private const string UniqueEventName = "{3596C906-E192-47BD-B890-B79591261EDD}";
         private EventWaitHandle eventWaitHandle;
@@ -73,10 +72,6 @@ namespace ExchangeRateServer
                 if (e.Args[i] == "/log")
                 {
                     flag_log = true;
-                }
-               else if (e.Args[i] == "/markets")
-                {
-                    flag_markets = true;
                 }
             }
 

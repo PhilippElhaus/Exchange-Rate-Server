@@ -1,7 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using WebSocketSharp;
 using WebSocketSharp.Server;
 
@@ -20,9 +18,6 @@ namespace ExchangeRateServer
 
         public ExRateInfoType info;
         public List<ExchangeRate> rates;
-        public Dictionary<string, List<MarketInfo>> markets;
-        public List<MarketInfo> bitfinexCOMmarkets;
-        public List<MarketInfo> bitcoinDEmarkets;
         public List<Change> currencies_change;
         public List<string> currencies;
 
@@ -109,6 +104,4 @@ namespace ExchangeRateServer
             });
         }
     }
-
-   
 }

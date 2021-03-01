@@ -53,27 +53,6 @@ namespace ExchangeRateServer
         }
     }
 
-    public class MarketInfo
-    {
-        private string pair;
-
-        public string Pair
-        {
-            get => pair;
-            set
-            {
-                    pair = value.ToUpper();
-                    BaseCurrency = value.Substring(0, 3).ToUpper();
-                    QuoteCurrency = value.Substring(3).ToUpper();
-            }
-        }
-
-        public string BaseCurrency { get; set; }
-        public string QuoteCurrency { get; set; }
-        public decimal Minimum_order_size { get; set; }
-        public DateTime Date { get; set; }
-    }
-
     // Converter
 
     public class TimeSinceLastUpdate : IValueConverter

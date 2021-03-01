@@ -48,15 +48,6 @@ namespace ExchangeRateServer
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesLongTerm = new Dictionary<(string, string), List<TimeData>>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesShortTerm = new Dictionary<(string, string), List<TimeData>>();
 
-        internal ObservableCollection<MarketInfo> BitfinexCOMMarkets = new ObservableCollection<MarketInfo>();
-        internal ObservableCollection<MarketInfo> BitcoinDEMarkets = new ObservableCollection<MarketInfo>()
-        { new MarketInfo() { Pair = "btceur", Minimum_order_size = 60 },
-            new MarketInfo() { Pair = "etheur", Minimum_order_size = 60 },
-            new MarketInfo() { Pair = "btgeur", Minimum_order_size = 60 },
-            new MarketInfo() { Pair = "bsveur", Minimum_order_size = 60 },
-            new MarketInfo() { Pair = "ltceur", Minimum_order_size = 60 },
-            new MarketInfo() { Pair = "bcheur", Minimum_order_size = 60 } };
-
         private string CMCAPIKEY;
         private string FIXERAPIKEY;
         private string WSSENDPOINT = "/rates";
@@ -98,8 +89,7 @@ namespace ExchangeRateServer
                 {
                     ExchangeRatesLV.ItemsSource = null;
                     ExchangeRatesLV.ItemsSource = Rates;
-                    MarketsLV.ItemsSource = null;
-                    MarketsLV.ItemsSource = BitfinexCOMMarkets;
+
                     CurrencyLV.ItemsSource = null;
                     CurrencyLV.ItemsSource = CurrenciesChange;
 
@@ -112,7 +102,6 @@ namespace ExchangeRateServer
                         lbl_exrates.Content = $"Exchange Rates ({Rates.Count}) | Recorded: [{count_short}|{count_long}]";
                     }
 
-                    lbl_markets_BitfinexCOM.Content = $"BitfinexCOM ({BitfinexCOMMarkets.Count})";
                     if (REFERENCECURRENCY != null) lbl_currencies_change.Content = $"Currencies ({CurrenciesChange.Count}) | Relating to ";
 
                     lbl_currencies.Content = $"Currencies ({Currencies.Count})";
@@ -175,19 +164,6 @@ namespace ExchangeRateServer
                 {
                     Tab_Log.Visibility = Visibility.Collapsed;
                 });
-            }
-
-            if (App.flag_markets)
-            {
-                Dispatcher.Invoke(() =>
-                {
-                    Tab_Markets.Visibility = Visibility.Visible;
-
-                    MarketsLVBitcoinDE.ItemsSource = BitcoinDEMarkets;
-                    lbl_markets_BitcoinDE.Content = $"BitcoinDE ({BitcoinDEMarkets.Count})";
-                });
-
-                Loop_Bitfinex_MarketInfo();
             }
         }
 
@@ -1032,47 +1008,6 @@ namespace ExchangeRateServer
             fixerQuery = false;
         }
 
-        // Market Info
-
-        private void Loop_Bitfinex_MarketInfo()
-        {
-            Task.Run(async () =>
-            {
-                while (true)
-                {
-                    AwaitOnline(Services.Bitfinex);
-
-                    Activity();
-
-                    try
-                    {
-                        using (WebClient webClient = new WebClient())
-                        {
-                            var deserialized = JsonConvert.DeserializeObject<List<MarketInfo>>(webClient.DownloadString("https://api.bitfinex.com/v1/symbols_details"));
-
-                            foreach (var item in deserialized)
-                            {
-                                item.Date = DateTime.Now;
-                            }
-
-                            Dispatcher.Invoke(() =>
-                            {
-                                BitfinexCOMMarkets = new ObservableCollection<MarketInfo>(deserialized.Where(x => !x.Pair.Contains(":")));
-                            });
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        log.Warning($"Error in Bitfinex Market Info: {ex.Message}");
-                    }
-                    finally
-                    {
-                        await Task.Delay(300000);
-                    }
-                }
-            });
-        }
-
         // API Supported Currencies
 
         private void CheckCoinbaseCurrencies()
@@ -1391,12 +1326,11 @@ namespace ExchangeRateServer
 
                             wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(new ExchangeRateServerInfo()
                             {
-                                success = true,
                                 info = ExchangeRateServerInfo.ExRateInfoType.Rates,
+                                success = true,
                                 currencies = Currencies,
                                 currencies_change = CurrenciesChange?.ToList(),
                                 rates = Rates?.ToList(),
-                                markets = !App.flag_markets ? null : new Dictionary<string, List<MarketInfo>>() { { "Bitfinex", BitfinexCOMMarkets?.ToList() }, { "BitcoinDE", BitcoinDEMarkets?.ToList() } }
                             }));
                         });
                     }

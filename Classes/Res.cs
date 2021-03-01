@@ -16,7 +16,6 @@ namespace ExchangeRateServer
         public static readonly System.Drawing.Icon Connected = new System.Drawing.Icon(@"images\yellow.ico");
 
         public static readonly List<string> FIAT = new List<string>() { "USD", "EUR", "JPY", "CAD", "GBP", "CNY", "NZD", "AUD", "CHF" };
-
     }
 
     public static class Ext
@@ -39,6 +38,5 @@ namespace ExchangeRateServer
 
         [DllImport("wininet.dll")]
         internal extern static bool InternetGetConnectedState(out int Val, int ReservedValue);
-
     }
 }

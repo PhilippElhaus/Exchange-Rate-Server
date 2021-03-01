@@ -6,16 +6,16 @@ Exchange Rate Server for Cryptocurrencies (Using the FREE plans of Fixer.IO API,
 
 ## Built with .NET 4.7.2 on WPF
 
-The *Exchange Rate Server* casts latest **Rates & Changes (1h, 24h, 7d, 30d)** and on request historic info via a WebSocketServer on the Network.
-Auto-generates pairs based on the addition of new Currencies by manual input or WebSocket request. Casts updates every 3secs.
+The *Exchange Rate Server* casts latest **Rates & Changes (1h, 24h, 7d, 30d)** and on request historic info via a WebSocket server on the network.
+Auto-generates pairs based on the addition of new currencies by manual input or WebSocket request. Casts updates every 3secs.
 
 * Ideal for Windows Server
-* Access via Tray Icon
-* Low Resource Usage
+* Access via tray icon
+* Low resource usage
 
-To add a new Currency via a Websocket Client *CURRENCY.CURRENCY* (e.g. CURRENCY.CHF) to the Websocket Server.
+To add a new currency via a Websocket client *CURRENCY.CURRENCY* (e.g. CURRENCY.CHF) to the WebSocket server.
 
-To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HISTORY.CHF) to the WebSocket Server.
+To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HISTORY.CHF) to the WebSocket server.
 
 <img src="shot_A.png" width="350">
 <img src="shot_B.png" width="350">
@@ -28,13 +28,12 @@ To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HI
       REFERENCECURRENCY=EUR
       PORT=222
 
-## Start-Up Flags
+## Start-Up Flag
 
 Usage: **ExchangeRateServer.exe /flag**
 
-Flag _/log_: Log Tab & Log File.
+Flag _/log_: Displays log tab and saves these system messages into a log file.
 
-Flag _/markets_: Casts additional info on available markets.
 
 ## Sample JSON Websocket Server Cast
 
