@@ -17,8 +17,8 @@ To add a new Currency via a Websocket Client *CURRENCY.CURRENCY* (e.g. CURRENCY.
 
 To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HISTORY.CHF) to the WebSocket Server.
 
-<img src="1.png" width="350">
-<img src="2.png" width="350">
+<img src="shot_A.png" width="350">
+<img src="shot_B.png" width="350">
 
 ## Setup via *config.txt* 
 
