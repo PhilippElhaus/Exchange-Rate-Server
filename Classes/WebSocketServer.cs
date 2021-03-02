@@ -56,13 +56,24 @@ namespace ExchangeRateServer
                     if (e.Data.StartsWith("HISTORY")) // HISTORY.BTC.EUR
                     {
                         var data = e.Data.ToUpper().Split('.');
-                        if (data.Length == 3) Main.WSS_History(data[1], data[2]);
-                        else Main.WSS_History(data[1], "EUR");
-
-                        Main.Dispatcher.Invoke(() =>
+                        if (data.Length == 3)
                         {
-                            Main.ExchangeRateInfo.Text = $"Request for Historic Data on [{data[1]}/{data[2]}] received.";
-                        });
+                            Main.WSS_History(data[1], data[2]);
+
+                            Main.Dispatcher.Invoke(() =>
+                            {
+                                Main.ExchangeRateInfo.Text = $"Request for Historic Data on [{data[1]}/{data[2]}] received.";
+                            });
+                        }
+                        else if (data.Length == 2)
+                        {
+                            Main.WSS_History(data[1], "EUR");
+
+                            Main.Dispatcher.Invoke(() =>
+                            {
+                                Main.ExchangeRateInfo.Text = $"Request for Historic Data on [{data[1]}/EUR] received.";
+                            });
+                        }
                     }
                     else if (e.Data.StartsWith("CURRENCY")) // CURRENCY.BTC
                     {
@@ -100,7 +111,7 @@ namespace ExchangeRateServer
         {
             Main.Dispatcher.Invoke(() =>
             {
-                Main.ExchangeRateInfo.Text = $"Client disconnected: {e.Reason} ({e.Code}) Clean: {e.WasClean}";
+                Main.ExchangeRateInfo.Text = $"Client {(e.WasClean ? "clean" : "ungraceful")} disconnected: {e.Code}";
             });
         }
     }

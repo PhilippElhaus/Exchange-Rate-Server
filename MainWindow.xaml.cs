@@ -38,6 +38,7 @@ namespace ExchangeRateServer
         private bool isCurrentlyUpdatingActivity;
 
         private object newCurrencyLock = new object();
+        private object historyFileLock = new object();
         private object sendHistoryLock = new object();
         private object currencyChangeLock = new object();
 
@@ -323,8 +324,36 @@ namespace ExchangeRateServer
 
         private void Loop_ExchangeRate()
         {
+            Init();
+
             Task.Run(async () =>
             {
+                Thread.Sleep(5000);
+
+                while (true)
+                {
+                    try
+                    {
+                        lock (historyFileLock)
+                        {
+                            File.WriteAllText("historic_data", JsonConvert.SerializeObject(new object[2] { HistoricRatesShortTerm, HistoricRatesLongTerm }));
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Information($"Error writing historic data to file: {ex.Short()}");
+                    }
+                    finally
+                    {
+                        await Task.Delay(new TimeSpan(0, 1, 0));
+                    }
+                }
+            });
+
+            Task.Run(async () =>
+            {
+                Thread.Sleep(5000);
+
                 while (CoinbaseCurrenices.Count == 0 || BitfinexCurrenices.Count == 0) { await Task.Delay(1000); }
 
                 while (true)
@@ -360,6 +389,54 @@ namespace ExchangeRateServer
                     }
                 }
             });
+
+            void Init()
+            {
+                try
+                {
+                    lock (historyFileLock)
+                    {
+                        if (File.Exists("historic_data"))
+                        {
+                            var content = File.ReadAllText("historic_data");
+
+                            var deser = JsonConvert.DeserializeObject<Dictionary<string, List<TimeData>>[]>(content);
+
+                            foreach (var item in deser[0])
+                            {
+                                var raw = item.Key.Trim(new char[] { '(', ')' });
+                                var currencies = raw.Split(',');
+
+                                currencies[1] = currencies[1].Trim();
+
+                                if (DateTime.Now - new TimeSpan(1, 0, 0) < item.Value[item.Value.Count - 1].Time)
+                                {
+                                    HistoricRatesShortTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 60)).ToList());
+                                }
+                            }
+
+                            foreach (var item in deser[1])
+                            {
+                                var raw = item.Key.Trim(new char[] { '(', ')' });
+                                var currencies = raw.Split(',');
+
+                                currencies[1] = currencies[1].Trim();
+
+                                if (DateTime.Now - new TimeSpan(7, 0, 0, 0) < item.Value[item.Value.Count - 1].Time)
+                                {
+                                    HistoricRatesLongTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 180)).ToList());
+                                }
+                            }
+
+                            log.Information(HistoricRatesShortTerm.Count + HistoricRatesLongTerm.Count > 0 ? $"Loaded {HistoricRatesShortTerm.Count + HistoricRatesLongTerm.Count} sets of historic rates." : $"No historic rates found.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Information($"Error loading historic data: {ex.Short()}");
+                }
+            }
         }
 
         private async Task ExchangeRate_Coinbase(string base_currency)
@@ -573,8 +650,26 @@ namespace ExchangeRateServer
 
                                         log.Information($"New Pair: [{base_currency}/{quote_currency_}] via Bitfinex");
 
-                                        HistoricRatesLongTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
-                                        HistoricRatesShortTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                        // Check for Pre-Created Historic Entries
+
+                                        if (HistoricRatesShortTerm.Where(x => x.Key == (base_currency, quote_currency_)).Count() == 0)
+                                        {
+                                            HistoricRatesShortTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                        }
+                                        else
+                                        {
+                                            HistoricRatesShortTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                        }
+
+
+                                        if (HistoricRatesLongTerm.Where(x => x.Key == (base_currency, quote_currency_)).Count() == 0)
+                                        {
+                                            HistoricRatesLongTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                        }
+                                        else
+                                        {
+                                            HistoricRatesLongTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                        }
                                     }
                                 }
 

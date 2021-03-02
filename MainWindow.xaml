@@ -313,7 +313,7 @@
                                         DisplayMemberBinding="{Binding Change30d}"
                                         Header="30d" />
                                     <GridViewColumn
-                                        Width="75"
+                                        Width="80"
                                         local:GridViewSort.PropertyName="Date"
                                         DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
                                         Header="Age" />
