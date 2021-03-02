@@ -15,7 +15,7 @@ Auto-generates pairs based on the addition of new currencies by manual input or 
 
 To add a new currency via a Websocket client *CURRENCY.CURRENCY* (e.g. CURRENCY.CHF) to the WebSocket server.
 
-To request recorded rates of up to three hours, send *HISTORY.CURRENCY* (e.g. HISTORY.CHF) to the WebSocket server.
+To request recorded rates of up to three hours, send *HISTORY.BASECURRENCY.QUOTECURRENCY* (e.g. HISTORY.CHF.EUR) to the WebSocket server.
 
 <img src="shot_A.png" width="350">
 <img src="shot_B.png" width="350">
