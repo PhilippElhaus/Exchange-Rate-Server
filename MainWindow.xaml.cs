@@ -857,7 +857,7 @@ namespace ExchangeRateServer
                         client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
                         client.Headers.Add("Accepts", "application/json");
 
-                        var currencies = Currencies.Where(x => CMCCurrenicesCrypto.Contains(x));
+                        var currencies = Currencies.ToArray().Where(x => CMCCurrenicesCrypto.Contains(x));
 
                         if (!reference_change)
                         {
