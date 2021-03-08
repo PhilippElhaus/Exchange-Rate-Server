@@ -536,8 +536,9 @@ namespace ExchangeRateServer
                                             Dispatcher.Invoke(() =>
                                             {
                                                 Rates.Add(exr);
-                                                Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
                                             });
+
+                                            Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
 
                                             log.Information($"New Pair: [{exr.CCY1}/{exr.CCY2}] via Coinbase");
 
@@ -644,9 +645,9 @@ namespace ExchangeRateServer
                                                 Date = DateTime.Now,
                                                 Rate = res
                                             });
-
-                                            Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
                                         });
+
+                                        Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
 
                                         log.Information($"New Pair: [{base_currency}/{quote_currency_}] via Bitfinex");
 
@@ -726,9 +727,9 @@ namespace ExchangeRateServer
                                         Date = DateTime.Now,
                                         Rate = res
                                     });
-
-                                    Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
                                 });
+
+                                Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
 
                                 log.Information($"New Pair: [{base_currency}/{quote_currency}] via Bitfinex");
 
@@ -910,9 +911,9 @@ namespace ExchangeRateServer
                                     }
                                 }
                             }
-
-                            CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderBy(x => x.Currency));
                         });
+
+                        CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderByDescending(x => Res.FIAT.Contains(x.Currency)).ThenBy(x => x.Currency));
 
                         if (reference_change) log.Information($"CMC: Added {cmc.data.Count()} currencies for new reference currency [{reference}].");
                     }
@@ -1035,7 +1036,7 @@ namespace ExchangeRateServer
                         UpdateEntry(temp);
                     }
 
-                    await Dispatcher.InvokeAsync(() => { CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderBy(x => x.Currency)); });
+                    CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderByDescending(x => Res.FIAT.Contains(x.Currency)).ThenBy(x => x.Currency));
 
                     if (reference_change) log.Information($"Fixer.io: Added {currencies.Count()} currencies for new reference currency [{reference}].");
 
@@ -1495,11 +1496,11 @@ namespace ExchangeRateServer
                 {
                     lock (newCurrencyLock)
                     {
-                        log.Information($"Verifying addition of {candidate} ...");
+                        Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Verifying {candidate}..."; });
 
                         if (Currencies.Contains(candidate))
                         {
-                            log.Information($"Already supported: [{candidate}]");
+                            Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"{candidate} already supported."; });
 
                             if (wssv != null)
                             {
@@ -1558,11 +1559,10 @@ namespace ExchangeRateServer
                         }
                         else
                         {
-                            log.Information($"Not supported: [{candidate}]");
-
                             Dispatcher.Invoke(() =>
                             {
                                 currencyInput.Text = "";
+                                ExchangeRateInfo.Text = $"{candidate} not supported.";
                             });
 
                             if (wssv != null)
@@ -1570,7 +1570,7 @@ namespace ExchangeRateServer
                                 var cast = new ExchangeRateServerInfo()
                                 {
                                     success = false,
-                                    message = $"Not supported: [{candidate}]",
+                                    message = $"{candidate} not supported.",
                                     info = ExchangeRateServerInfo.ExRateInfoType.NewCurrency,
                                     newCurrency = candidate
                                 };
