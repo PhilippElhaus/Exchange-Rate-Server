@@ -86,6 +86,9 @@ namespace ExchangeRateServer
 
             autoRefresh.Elapsed += (x, y) =>
             {
+                Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(z => z.CCY1).ThenBy(z => z.CCY2)); ;
+                CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderByDescending(z => Res.FIAT.Contains(z.Currency)).ThenBy(z => z.Currency));
+
                 Dispatcher.Invoke(() =>
                 {
                     ExchangeRatesLV.ItemsSource = null;
@@ -538,8 +541,6 @@ namespace ExchangeRateServer
                                                 Rates.Add(exr);
                                             });
 
-                                            Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
-
                                             log.Information($"New Pair: [{exr.CCY1}/{exr.CCY2}] via Coinbase");
 
                                             HistoricRatesLongTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
@@ -647,8 +648,6 @@ namespace ExchangeRateServer
                                             });
                                         });
 
-                                        Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
-
                                         log.Information($"New Pair: [{base_currency}/{quote_currency_}] via Bitfinex");
 
                                         // Check for Pre-Created Historic Entries
@@ -728,8 +727,6 @@ namespace ExchangeRateServer
                                         Rate = res
                                     });
                                 });
-
-                                Rates = new ObservableCollection<ExchangeRate>(Rates.OrderBy(x => x.CCY1).ThenBy(y => y.CCY2));
 
                                 log.Information($"New Pair: [{base_currency}/{quote_currency}] via Bitfinex");
 
@@ -913,8 +910,6 @@ namespace ExchangeRateServer
                             }
                         });
 
-                        CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderByDescending(x => Res.FIAT.Contains(x.Currency)).ThenBy(x => x.Currency));
-
                         if (reference_change) log.Information($"CMC: Added {cmc.data.Count()} currencies for new reference currency [{reference}].");
                     }
                 }
@@ -1035,8 +1030,6 @@ namespace ExchangeRateServer
 
                         UpdateEntry(temp);
                     }
-
-                    CurrenciesChange = new ObservableCollection<Change>(CurrenciesChange.OrderByDescending(x => Res.FIAT.Contains(x.Currency)).ThenBy(x => x.Currency));
 
                     if (reference_change) log.Information($"Fixer.io: Added {currencies.Count()} currencies for new reference currency [{reference}].");
 
