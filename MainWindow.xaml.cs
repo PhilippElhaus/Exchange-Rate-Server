@@ -357,7 +357,7 @@ namespace ExchangeRateServer
             {
                 Thread.Sleep(5000);
 
-                while (CoinbaseCurrenices.Count == 0 || BitfinexCurrenices.Count == 0) { await Task.Delay(1000); }
+                while (CoinbaseCurrenices.Count == 0 && BitfinexCurrenices.Count == 0) { await Task.Delay(1000); }
 
                 while (true)
                 {
@@ -371,10 +371,13 @@ namespace ExchangeRateServer
                                 {
                                     await ExchangeRate_Coinbase(base_currency);
                                 }
-                                else if (BitfinexCurrenices.Contains(base_currency))
+                                else
+
+                                if (BitfinexCurrenices.Contains(base_currency))
                                 {
                                     await ExchangeRate_Bitfinex(base_currency);
                                 }
+                                else Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Not found: {base_currency}"; });
 
                                 await Task.Delay(3000);
                             }
@@ -414,9 +417,7 @@ namespace ExchangeRateServer
 
                                 if (DateTime.Now - new TimeSpan(1, 0, 0) < item.Value[item.Value.Count - 1].Time)
                                 {
-                                 
-                                        HistoricRatesShortTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 60)).ToList());
-                                  
+                                    HistoricRatesShortTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 60)).ToList());
                                 }
                             }
 
@@ -429,9 +430,7 @@ namespace ExchangeRateServer
 
                                 if (DateTime.Now - new TimeSpan(7, 0, 0, 0) < item.Value[item.Value.Count - 1].Time)
                                 {
-                             
-                                        HistoricRatesLongTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 180)).ToList());
-                                 
+                                    HistoricRatesLongTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 180)).ToList());
                                 }
                             }
 
@@ -478,8 +477,9 @@ namespace ExchangeRateServer
                             }
 
                             var deserialized = JsonConvert.DeserializeObject<Coinbase_JSON>(json);
+                            var cur = Currencies.ToArray();
 
-                            foreach (var quote_currency in Currencies.ToArray())
+                            foreach (var quote_currency in cur)
                             {
                                 if (quote_currency != base_currency)
                                 {
@@ -493,38 +493,32 @@ namespace ExchangeRateServer
 
                                             if (Res.FIAT.Contains(quote_currency) && !Res.FIAT.Contains(base_currency))
                                             {
-                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
+                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], NumberStyles.Float, new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
                                             }
                                             else
                                             {
-                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
+                                                exrEntry.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], NumberStyles.Float, new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
                                             }
 
                                             Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Checking [{base_currency}]... updated."; });
 
                                             if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)].Last().Time)
                                             {
-                                                lock (historyFileLock)
-                                                {
-                                                    HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
+                                                HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
 
-                                                    if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)][0].Time)
-                                                    {
-                                                        HistoricRatesLongTerm[(base_currency, quote_currency)].RemoveAt(0);
-                                                    }
+                                                if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)][0].Time)
+                                                {
+                                                    HistoricRatesLongTerm[(base_currency, quote_currency)].RemoveAt(0);
                                                 }
                                             }
 
                                             if ((DateTime.Now - new TimeSpan(0, 1, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)].Last().Time)
                                             {
-                                                lock (historyFileLock)
-                                                {
-                                                    HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
+                                                HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
 
-                                                    if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)][0].Time)
-                                                    {
-                                                        HistoricRatesShortTerm[(base_currency, quote_currency)].RemoveAt(0);
-                                                    }
+                                                if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)][0].Time)
+                                                {
+                                                    HistoricRatesShortTerm[(base_currency, quote_currency)].RemoveAt(0);
                                                 }
                                             }
                                         }
@@ -539,11 +533,11 @@ namespace ExchangeRateServer
 
                                             if (Res.FIAT.Contains(quote_currency) && !Res.FIAT.Contains(base_currency))
                                             {
-                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
+                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], NumberStyles.Float, new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
                                             }
                                             else
                                             {
-                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
+                                                exr.Rate = Ext.TruncateDecimal(decimal.Parse(deserialized.data.Rates[quote_currency], NumberStyles.Float, new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
                                             }
 
                                             Dispatcher.Invoke(() =>
@@ -551,26 +545,34 @@ namespace ExchangeRateServer
                                                 Rates.Add(exr);
                                             });
 
-                                            log.Information($"New Pair: [{exr.CCY1}/{exr.CCY2}] via Coinbase");
-
-                                            lock (historyFileLock)
+                                            if (!HistoricRatesLongTerm.ContainsKey((base_currency, quote_currency)))
                                             {
                                                 HistoricRatesLongTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
+                                            }
 
+                                            if (!HistoricRatesShortTerm.ContainsKey((base_currency, quote_currency)))
+                                            {
                                                 HistoricRatesShortTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)exr.Rate } });
                                             }
                                         }
                                     }
                                     else
                                     {
+                                        log.Information($"Requesting from Bitfinex {quote_currency}");
                                         await ExchangeRate_Bitfinex(base_currency, quote_currency);
                                     }
                                 }
                             }
                         }
                     }
-                    catch
+                    catch (FormatException ex)
                     {
+                        log.Information($"Format Exception: {Ext.Short(ex)}");
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Information($"Error: {ex}");
+
                         return;
                     }
                 }
@@ -623,27 +625,21 @@ namespace ExchangeRateServer
 
                                             if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency_)].Last().Time)
                                             {
-                                                lock (historyFileLock)
-                                                {
-                                                    HistoricRatesLongTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                                HistoricRatesLongTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                                    if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency_)][0].Time)
-                                                    {
-                                                        HistoricRatesLongTerm[(base_currency, quote_currency_)].RemoveAt(0);
-                                                    }
+                                                if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency_)][0].Time)
+                                                {
+                                                    HistoricRatesLongTerm[(base_currency, quote_currency_)].RemoveAt(0);
                                                 }
                                             }
 
                                             if ((DateTime.Now - new TimeSpan(0, 1, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency_)].Last().Time)
                                             {
-                                                lock (historyFileLock)
-                                                {
-                                                    HistoricRatesShortTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                                HistoricRatesShortTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                                    if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency_)][0].Time)
-                                                    {
-                                                        HistoricRatesShortTerm[(base_currency, quote_currency_)].RemoveAt(0);
-                                                    }
+                                                if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency_)][0].Time)
+                                                {
+                                                    HistoricRatesShortTerm[(base_currency, quote_currency_)].RemoveAt(0);
                                                 }
                                             }
                                         }
@@ -671,14 +667,11 @@ namespace ExchangeRateServer
 
                                         // Check for Pre-Created Historic Entries
 
-                                        lock (historyFileLock)
-                                        {
-                                            if (HistoricRatesShortTerm.Where(x => x.Key == (base_currency, quote_currency_)).Count() == 0) HistoricRatesShortTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
-                                            else HistoricRatesShortTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                        if (HistoricRatesShortTerm.Where(x => x.Key == (base_currency, quote_currency_)).Count() == 0) HistoricRatesShortTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                        else HistoricRatesShortTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                            if (HistoricRatesLongTerm.Where(x => x.Key == (base_currency, quote_currency_)).Count() == 0) HistoricRatesLongTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
-                                            else HistoricRatesLongTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
-                                        }
+                                        if (HistoricRatesLongTerm.Where(x => x.Key == (base_currency, quote_currency_)).Count() == 0) HistoricRatesLongTerm.Add((base_currency, quote_currency_), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                        else HistoricRatesLongTerm[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
                                     }
                                 }
 
@@ -713,27 +706,21 @@ namespace ExchangeRateServer
 
                                     if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)].Last().Time)
                                     {
-                                        lock (historyFileLock)
-                                        {
-                                            HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                        HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                            if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)][0].Time)
-                                            {
-                                                HistoricRatesLongTerm[(base_currency, quote_currency)].RemoveAt(0);
-                                            }
+                                        if ((DateTime.Now - new TimeSpan(7, 0, 0, 0)) > HistoricRatesLongTerm[(base_currency, quote_currency)][0].Time)
+                                        {
+                                            HistoricRatesLongTerm[(base_currency, quote_currency)].RemoveAt(0);
                                         }
                                     }
 
                                     if ((DateTime.Now - new TimeSpan(0, 1, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)].Last().Time)
                                     {
-                                        lock (historyFileLock)
-                                        {
-                                            HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                        HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                            if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)][0].Time)
-                                            {
-                                                HistoricRatesShortTerm[(base_currency, quote_currency)].RemoveAt(0);
-                                            }
+                                        if ((DateTime.Now - new TimeSpan(1, 0, 0)) > HistoricRatesShortTerm[(base_currency, quote_currency)][0].Time)
+                                        {
+                                            HistoricRatesShortTerm[(base_currency, quote_currency)].RemoveAt(0);
                                         }
                                     }
                                 }
@@ -760,14 +747,11 @@ namespace ExchangeRateServer
 
                                 // Check for Pre-Created Historic Entries
 
-                                lock (historyFileLock)
-                                {
-                                    if (HistoricRatesShortTerm.Where(x => x.Key == (base_currency, quote_currency)).Count() == 0) HistoricRatesShortTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
-                                    else HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
+                                if (HistoricRatesShortTerm.Where(x => x.Key == (base_currency, quote_currency)).Count() == 0) HistoricRatesShortTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                else HistoricRatesShortTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                    if (HistoricRatesLongTerm.Where(x => x.Key == (base_currency, quote_currency)).Count() == 0) HistoricRatesLongTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
-                                    else HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
-                                }
+                                if (HistoricRatesLongTerm.Where(x => x.Key == (base_currency, quote_currency)).Count() == 0) HistoricRatesLongTerm.Add((base_currency, quote_currency), new List<TimeData>() { new TimeData() { Time = DateTime.Now, Rate = (double)res } });
+                                else HistoricRatesLongTerm[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
                             }
                         }
                     }
@@ -807,11 +791,11 @@ namespace ExchangeRateServer
                     {
                         if (Res.FIAT.Contains(ccy2) && !Res.FIAT.Contains(ccy1))
                         {
-                            result = Ext.TruncateDecimal(decimal.Parse(sRead.ReadToEnd().Trim('[').Trim(']'), new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
+                            result = Ext.TruncateDecimal(decimal.Parse(sRead.ReadToEnd().Trim('[').Trim(']'), NumberStyles.Float, new NumberFormatInfo() { NumberDecimalSeparator = "." }), 2);
                         }
                         else
                         {
-                            result = Ext.TruncateDecimal(decimal.Parse(sRead.ReadToEnd().Trim('[').Trim(']'), new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
+                            result = Ext.TruncateDecimal(decimal.Parse(sRead.ReadToEnd().Trim('[').Trim(']'), NumberStyles.Float, new NumberFormatInfo() { NumberDecimalSeparator = "." }), 8);
                         }
 
                         sRead.Close();
@@ -822,12 +806,12 @@ namespace ExchangeRateServer
                 catch (Exception ex) when (ex.Message.Contains("500") || ex.Message.Contains("The underlying connection was closed"))
                 {
                     Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Not available: [{ccy1}/{ccy2}]"; });
-                 
+
                     return default;
                 }
                 catch (Exception ex) when (ex.Message.Contains("408") || ex.Message.Contains("The operation has timed out"))
                 {
-                    Dispatcher.Invoke(() =>{ ExchangeRateInfo.Text = $"Timeout: [{ccy1}/{ccy2}]"; });
+                    Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Timeout: [{ccy1}/{ccy2}]"; });
                     return default;
                 }
                 catch (Exception ex)
