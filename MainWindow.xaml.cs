@@ -33,6 +33,7 @@ namespace ExchangeRateServer
         private bool cmcQuery;
         private bool fixerQuery;
         private bool justAdded;
+        private bool allCurrenciesIn => Currencies.Count * (Currencies.Count - 1) == Rates.Count ? true : false;
 
         private bool online;
         private bool isCurrentlyUpdatingActivity;
@@ -313,7 +314,7 @@ namespace ExchangeRateServer
                     }
                     catch (Exception ex)
                     {
-                        log.Error($"UpTimeAndLoad Info Loop Error: {ex.Message} {ex}");
+                        log.Error($"UpTimeAndLoad Info Loop Error: {ex.Short()}");
                     }
                     finally
                     {
@@ -379,7 +380,7 @@ namespace ExchangeRateServer
                                 }
                                 else Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Not found: {base_currency}"; });
 
-                                await Task.Delay(3000);
+                                await Task.Delay(allCurrenciesIn ? 5000 : 3000);
                             }
 
                             Dispatcher.Invoke(() => { ExchangeRateInfo.Text = "Visited all pairs."; });
@@ -417,9 +418,7 @@ namespace ExchangeRateServer
 
                                 if (DateTime.Now - new TimeSpan(1, 0, 0) < item.Value[item.Value.Count - 1].Time)
                                 {
-                                   
-                                        HistoricRatesShortTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 60)).ToList());
-                                  
+                                    HistoricRatesShortTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 60)).ToList());
                                 }
                             }
 
@@ -432,9 +431,7 @@ namespace ExchangeRateServer
 
                                 if (DateTime.Now - new TimeSpan(7, 0, 0, 0) < item.Value[item.Value.Count - 1].Time)
                                 {
-                                
-                                        HistoricRatesLongTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 180)).ToList());
-                                   
+                                    HistoricRatesLongTerm.Add((currencies[0], currencies[1]), item.Value.Skip(Math.Max(0, item.Value.Count() - 180)).ToList());
                                 }
                             }
 
@@ -586,7 +583,7 @@ namespace ExchangeRateServer
                     }
                     catch (Exception ex)
                     {
-                        log.Information($"Error: {ex}");
+                        log.Information($"Error: {ex.Short()}");
 
                         return;
                     }
@@ -846,6 +843,16 @@ namespace ExchangeRateServer
                 {
                     Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Timeout: [{ccy1}/{ccy2}]"; });
                     return default;
+                } 
+                catch (Exception ex) when (ex.Message.Contains("502") || ex.Message.Contains("Bad Gateway"))
+                {
+                    Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Bad Gateway: [{ccy1}/{ccy2}]"; });
+                    return default;
+                }  
+                catch (Exception ex) when (ex.Message.Contains("The remote name could not be resolved"))
+                {
+                    Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"DNS resolving DNS: [{ccy1}/{ccy2}]"; });
+                    return default;
                 }
                 catch (Exception ex)
                 {
@@ -973,6 +980,10 @@ namespace ExchangeRateServer
                 catch (Exception ex) when (ex.Message.Contains("404"))
                 {
                     log.Error("Error in CMC Query: Not found");
+                }  
+                catch (Exception ex) when (ex.Message.Contains("500"))
+                {
+                    log.Error("Error in CMC Query: Internal Server Error");
                 }
                 catch (Exception ex)
                 {
@@ -1713,7 +1724,7 @@ namespace ExchangeRateServer
                                     break;
 
                                 case Services.Fixer:
-                                    if (ping.Send("data.fixer.io").Status == IPStatus.Success)
+                                    if (ping.Send("fixer.io").Status == IPStatus.Success)
                                     {
                                         Dispatcher.Invoke(() => { onlineIndicator_Fixer.Source = Res.Green; });
                                         return true;
