@@ -6,7 +6,7 @@ using System.Windows.Data;
 
 namespace ExchangeRateServer
 {
-    internal enum Services
+    public enum Services
     {
         Fixer = 0,
         CMC = 1,
@@ -38,11 +38,13 @@ namespace ExchangeRateServer
         private string ccy2;
         private decimal rate;
         private DateTime date;
+        private Services exchange;
 
         public string CCY1 { get { return ccy1; } set { if (value != ccy1) { ccy1 = value; NotifyPropertyChanged(); } } }
         public string CCY2 { get { return ccy2; } set { if (value != ccy2) { ccy2 = value; NotifyPropertyChanged(); } } }
         public decimal Rate { get { return rate; } set { if (value != rate) { rate = value; NotifyPropertyChanged(); } } }
         public DateTime Date { get { return date; } set { if (value != date) { date = value; NotifyPropertyChanged(); } } }
+        public Services Exchange { get { return exchange; } set { if (value != exchange) { exchange = value; NotifyPropertyChanged(); } } }
 
         [field: NonSerialized]
         public event PropertyChangedEventHandler PropertyChanged;
@@ -77,6 +79,39 @@ namespace ExchangeRateServer
             {
                 return string.Format("{1}s", t.Minutes, t.Seconds);
             }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return default;
+        }
+    }    
+    
+    public class ExchangeConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var exchange = (Services)value;
+
+            switch (exchange)
+            {
+                case Services.Fixer:
+                    return "FXR";
+
+                case Services.CMC:
+                    return "CMC";
+
+                case Services.Bitfinex:
+                    return "BFX";
+
+                case Services.Coinbase:
+                    return "CB";
+
+                default:
+                    return "";
+            }
+
+
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

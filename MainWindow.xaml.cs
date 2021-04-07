@@ -491,6 +491,7 @@ namespace ExchangeRateServer
                                             var exrEntry = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency).Single();
 
                                             exrEntry.Date = DateTime.Now;
+                                            exrEntry.Exchange = Services.Coinbase;
 
                                             if (Res.FIAT.Contains(quote_currency) && !Res.FIAT.Contains(base_currency))
                                             {
@@ -533,6 +534,7 @@ namespace ExchangeRateServer
                                         {
                                             var exr = new ExchangeRate()
                                             {
+                                                Exchange = Services.Coinbase,
                                                 CCY1 = base_currency,
                                                 CCY2 = quote_currency,
                                                 Date = DateTime.Now,
@@ -629,6 +631,7 @@ namespace ExchangeRateServer
                                         {
                                             rate.Rate = res;
                                             rate.Date = DateTime.Now;
+                                            rate.Exchange = Services.Bitfinex;
 
                                             Dispatcher.Invoke(() =>
                                             {
@@ -674,6 +677,7 @@ namespace ExchangeRateServer
                                         {
                                             Rates.Add(new ExchangeRate()
                                             {
+                                                Exchange = Services.Bitfinex,
                                                 CCY1 = base_currency,
                                                 CCY2 = quote_currency_,
                                                 Date = DateTime.Now,
@@ -717,6 +721,7 @@ namespace ExchangeRateServer
 
                                 if (res != 0)
                                 {
+                                    rate.Exchange = Services.Bitfinex;
                                     rate.Rate = res;
                                     rate.Date = DateTime.Now;
 
@@ -763,6 +768,7 @@ namespace ExchangeRateServer
                                 {
                                     Rates.Add(new ExchangeRate()
                                     {
+                                        Exchange = Services.Bitfinex,
                                         CCY1 = base_currency,
                                         CCY2 = quote_currency,
                                         Date = DateTime.Now,
@@ -843,12 +849,12 @@ namespace ExchangeRateServer
                 {
                     Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Timeout: [{ccy1}/{ccy2}]"; });
                     return default;
-                } 
+                }
                 catch (Exception ex) when (ex.Message.Contains("502") || ex.Message.Contains("Bad Gateway"))
                 {
                     Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Bad Gateway: [{ccy1}/{ccy2}]"; });
                     return default;
-                }  
+                }
                 catch (Exception ex) when (ex.Message.Contains("The remote name could not be resolved"))
                 {
                     Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"DNS resolving DNS: [{ccy1}/{ccy2}]"; });
@@ -980,7 +986,7 @@ namespace ExchangeRateServer
                 catch (Exception ex) when (ex.Message.Contains("404"))
                 {
                     log.Error("Error in CMC Query: Not found");
-                }  
+                }
                 catch (Exception ex) when (ex.Message.Contains("500"))
                 {
                     log.Error("Error in CMC Query: Internal Server Error");
