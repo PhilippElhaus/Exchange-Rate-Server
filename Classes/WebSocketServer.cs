@@ -14,6 +14,7 @@ namespace ExchangeRateServer
             Rates = 1,
             History = 2,
             NewCurrency = 3,
+            SpecificPair = 4
         }
 
         public ExRateInfoType info;
@@ -22,6 +23,7 @@ namespace ExchangeRateServer
         public List<string> currencies;
 
         public string newCurrency;
+        public Services exchange;
         public History history;
 
         public bool success;
@@ -86,6 +88,20 @@ namespace ExchangeRateServer
                         });
 
                         Main.WSS_AddCurrency(data[1]);
+                    }
+                    else if (e.Data.StartsWith("PAIR")) // PAIR.BTC.EUR.EXCHANGE
+                    {
+                        var data = e.Data.ToUpper().Split('.');
+
+                        Main.Dispatcher.Invoke(() =>
+                        {
+                            Main.currencyInput.Text = data[1];
+                            Main.ExchangeRateInfo.Text = $"Verifying Pair [{data[1]}/{data[2]}] @ {data[3]}...";
+                        });
+
+                        Main.WSS_AddTradingPair(data[1], data[2], data[3]);
+
+                        // TODO STOPPED HERE
                     }
                     else
                     {

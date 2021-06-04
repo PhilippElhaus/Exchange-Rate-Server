@@ -8,10 +8,11 @@ namespace ExchangeRateServer
 {
     public enum Services
     {
-        Fixer = 0,
-        CMC = 1,
-        Bitfinex = 2,
-        Coinbase = 3
+        None = 0,
+        Fixer = 1,
+        CMC = 2,
+        Bitfinex = 3,
+        Coinbase = 4
     }
 
     public class Change

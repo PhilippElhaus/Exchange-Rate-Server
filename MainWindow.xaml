@@ -111,19 +111,19 @@
                     </StackPanel>
                     <StackPanel
                         Grid.Column="1"
-                        HorizontalAlignment="Center"
+                        HorizontalAlignment="Left"
                         VerticalAlignment="Top"
                         Orientation="Vertical">
                         <Label
                             x:Name="lbl_exrates"
-                            Width="255"
+                            Width="265"
                             Height="30"
                             HorizontalAlignment="Left"
                             VerticalContentAlignment="Center"
                             Content="Exchange Rates" />
                         <ListView
                             x:Name="ExchangeRatesLV"
-                            Width="260"
+                            Width="265"
                             Height="275"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"
@@ -147,7 +147,7 @@
                                         DisplayMemberBinding="{Binding Rate}"
                                         Header="Rate" />
                                     <GridViewColumn
-                                        Width="40"
+                                        Width="45"
                                         local:GridViewSort.PropertyName="Date"
                                         DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
                                         Header="Age" />

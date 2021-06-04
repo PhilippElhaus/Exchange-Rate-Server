@@ -46,7 +46,7 @@ namespace ExchangeRateServer
         internal WebSocketServer wssv;
         internal ObservableCollection<ExchangeRate> Rates = new ObservableCollection<ExchangeRate>();
         internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
-
+        internal List<(string, string, Services)> SpecificRequests = new List<(string, string, Services)>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesLongTerm = new Dictionary<(string, string), List<TimeData>>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesShortTerm = new Dictionary<(string, string), List<TimeData>>();
 
@@ -383,6 +383,21 @@ namespace ExchangeRateServer
                                 await Task.Delay(allCurrenciesIn ? 5000 : 3000);
                             }
 
+                            foreach (var request in SpecificRequests)
+                            {
+                                if (request.Item3 == Services.Bitfinex)
+                                {
+                                    await ExchangeRate_Bitfinex(request.Item1, request.Item2);
+                                }
+                                else if (request.Item3 == Services.Coinbase)
+                                {
+                                    if (CoinbaseCurrenices.Contains(request.Item1) && CoinbaseCurrenices.Contains(request.Item2))
+                                    {
+                                        await ExchangeRate_Coinbase(request.Item1);
+                                    }
+                                }
+                            }
+
                             Dispatcher.Invoke(() => { ExchangeRateInfo.Text = "Visited all pairs."; });
                         }
                         catch (Exception ex)
@@ -486,9 +501,9 @@ namespace ExchangeRateServer
                                 {
                                     if (deserialized.data.Rates.ContainsKey(quote_currency))
                                     {
-                                        if (Rates.ToList().Exists(x => x.CCY1 == base_currency && x.CCY2 == quote_currency)) // Update
+                                        if (Rates.ToList().Exists(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Coinbase)) // Update
                                         {
-                                            var exrEntry = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency).Single();
+                                            var exrEntry = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Coinbase).Single();
 
                                             exrEntry.Date = DateTime.Now;
                                             exrEntry.Exchange = Services.Coinbase;
@@ -615,7 +630,10 @@ namespace ExchangeRateServer
                             if (base_currency != quote_currency_)
                             {
                                 ExchangeRate rate = default;
-                                Dispatcher.Invoke(() => { rate = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency_).FirstOrDefault(); });
+                                Dispatcher.Invoke(() =>
+                                {
+                                    rate = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency_ && x.Exchange == Services.Bitfinex).FirstOrDefault();
+                                });
 
                                 if (rate != default) // Update
                                 {
@@ -707,7 +725,10 @@ namespace ExchangeRateServer
                     else
                     {
                         ExchangeRate rate = default;
-                        Dispatcher.Invoke(() => { rate = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency).FirstOrDefault(); });
+                        Dispatcher.Invoke(() =>
+                        {
+                            rate = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Bitfinex).FirstOrDefault();
+                        });
 
                         if (rate != default) // Update
                         {
@@ -1646,6 +1667,77 @@ namespace ExchangeRateServer
                     log.Error($"Error adding Currency: {ex}");
                 }
             });
+        }
+
+        internal void WSS_AddTradingPair(string CCY1, string CCY2, string exchange) 
+        {
+            Services Exchange = default;
+            try
+            {
+                Exchange = (Services)Enum.Parse(typeof(Services), exchange, true);
+            }
+            catch
+            {
+                ResultNotification($"Unable to process Exchange '{exchange}'.", false);
+
+                return;
+            }
+
+            if (SpecificRequests.Where(x => x.Item1 == CCY1 && x.Item2 == CCY2 && x.Item3 == Exchange).Any())
+            {
+                ResultNotification($"Already supported: [{CCY1}/{CCY2}] @ {exchange}", false);
+            }
+            else
+            {
+                if (Exchange == Services.Bitfinex)
+                {
+                    if (!BitfinexCurrenices.Contains(CCY1) || !BitfinexCurrenices.Contains(CCY2))
+                    {
+                        ResultNotification($"Not supported: [{CCY1}/{CCY2}] @ {exchange}", false);
+                    }
+                    else
+                    {
+                        Success();
+                        ResultNotification($"Added: [{CCY1}/{CCY2}] @ {exchange}", true);
+                    }
+                }
+                else if (Exchange == Services.Coinbase)
+                {
+                    if (!CoinbaseCurrenices.Contains(CCY1) || !CoinbaseCurrenices.Contains(CCY2))
+                    {
+                        ResultNotification($"Not supported: [{CCY1}/{CCY2}] @ {exchange}", false);
+                    }
+                    else
+                    {
+                        Success();
+                        ResultNotification($"Added: [{CCY1}/{CCY2}] @ {exchange}", true);
+                    }
+                }
+            }
+
+            void Success()
+            {
+                SpecificRequests.Add((CCY1, CCY2, Exchange));
+                log.Information($"Added new Pair: [{CCY1}/{CCY2}] @ {exchange}");
+            }
+
+            void ResultNotification(string message, bool success)
+            {
+                if (wssv != null)
+                {
+                    var cast = new ExchangeRateServerInfo()
+                    {
+                        success = success,
+                        message = message,
+
+                        info = ExchangeRateServerInfo.ExRateInfoType.SpecificPair
+                    };
+
+                    wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
+                }
+
+                Dispatcher.Invoke(() => { ExchangeRateInfo.Text = message; });
+            }
         }
 
         // Utility
