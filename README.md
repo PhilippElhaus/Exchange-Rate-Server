@@ -17,6 +17,8 @@ To add a new currency via a Websocket client *CURRENCY.CURRENCY* (e.g. CURRENCY.
 
 For recorded rates of up to three hours send *HISTORY.BASE.QUOTE* (e.g. HISTORY.CHF.EUR) to the WebSocket server.
 
+To request an individual Exchange Rate for a pair send *PAIR.CCY1.CCY2.EXCHANGE* (e.g. PAIR.BTC.EUR.BITFINEX) to the WebSocket server.
+
 <img src="shot_A.png" width="350">
 <img src="shot_B.png" width="350">
 
