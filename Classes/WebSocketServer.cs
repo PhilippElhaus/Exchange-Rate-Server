@@ -93,15 +93,34 @@ namespace ExchangeRateServer
                     {
                         var data = e.Data.ToUpper().Split('.');
 
-                        Main.Dispatcher.Invoke(() =>
+                        if (data.Length < 4)
                         {
-                            Main.currencyInput.Text = data[1];
-                            Main.ExchangeRateInfo.Text = $"Verifying Pair [{data[1]}/{data[2]}] @ {data[3]}...";
-                        });
+                            Main.Dispatcher.Invoke(() =>
+                            {
+                                Main.ExchangeRateInfo.Text = $"Incomplete Request Data. Aborted.";
+                            });
+                        }
+                        else
+                        {
+                            if(data[1] != data[2]) { 
 
-                        Main.WSS_AddTradingPair(data[1], data[2], data[3]);
+                            Main.Dispatcher.Invoke(() =>
+                            {
+                                Main.currencyInput.Text = data[1];
+                                Main.ExchangeRateInfo.Text = $"Verifying Pair [{data[1]}/{data[2]}] @ {data[3]}...";
+                            });
 
-                        // TODO STOPPED HERE
+                            Main.WSS_AddTradingPair(data[1], data[2], data[3]);
+                            }
+                            else
+                            {
+                                Main.Dispatcher.Invoke(() =>
+                                {
+                                    Main.ExchangeRateInfo.Text = $"Currencies are identical. Aborted.";
+                                });
+
+                            }
+                        }
                     }
                     else
                     {
