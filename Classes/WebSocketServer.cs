@@ -7,6 +7,12 @@ namespace ExchangeRateServer
 {
     // WebSocker Server
 
+    public class RequestedPair
+    {
+        public string CCY1;
+        public string CCY2;
+    }
+
     public class ExchangeRateServerInfo
     {
         public enum ExRateInfoType
@@ -14,7 +20,8 @@ namespace ExchangeRateServer
             Rates = 1,
             History = 2,
             NewCurrency = 3,
-            SpecificPair = 4
+            SpecificPair = 4,
+            Markets = 5
         }
 
         public ExRateInfoType info;
@@ -23,8 +30,10 @@ namespace ExchangeRateServer
         public List<string> currencies;
 
         public string newCurrency;
+        public RequestedPair newPair;
         public Services exchange;
         public History history;
+        public List<MarketInfo> markets;
 
         public bool success;
         public string message;
@@ -102,15 +111,15 @@ namespace ExchangeRateServer
                         }
                         else
                         {
-                            if(data[1] != data[2]) { 
-
-                            Main.Dispatcher.Invoke(() =>
+                            if (data[1] != data[2])
                             {
-                                Main.currencyInput.Text = data[1];
-                                Main.ExchangeRateInfo.Text = $"Verifying Pair [{data[1]}/{data[2]}] @ {data[3]}...";
-                            });
+                                Main.Dispatcher.Invoke(() =>
+                                {
+                                    Main.currencyInput.Text = data[1];
+                                    Main.ExchangeRateInfo.Text = $"Verifying Pair [{data[1]}/{data[2]}] @ {data[3]}...";
+                                });
 
-                            Main.WSS_AddTradingPair(data[1], data[2], data[3]);
+                                Main.WSS_AddTradingPair(data[1], data[2], data[3]);
                             }
                             else
                             {
@@ -118,9 +127,19 @@ namespace ExchangeRateServer
                                 {
                                     Main.ExchangeRateInfo.Text = $"Currencies are identical. Aborted.";
                                 });
-
                             }
                         }
+                    }
+                    else if (e.Data.StartsWith("MARKETS")) // MARKETS.MARKET
+                    {
+                        Main.Dispatcher.Invoke(() =>
+                        {
+                            Main.ExchangeRateInfo.Text = $"Casting Market Info ...";
+                        });
+
+                        var split = e.Data.Split('.');
+
+                        Main.WSS_SendMarketInfo(split[1]);
                     }
                     else
                     {

@@ -63,10 +63,19 @@ namespace ExchangeRateServer
 
     public class Fixer_JSON
     {
+        public bool Succeess { get; set; }
+
         public string Base { get; set; }
 
         public DateTimeOffset Date { get; set; }
 
         public Dictionary<string, double> Rates { get; set; }
+
+        public Error error { get; set; }
+
+        public class Error
+        {
+            public string Code { get; set; }
+        }
     }
 }

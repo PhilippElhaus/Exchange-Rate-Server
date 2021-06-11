@@ -329,6 +329,58 @@
                     </StackPanel>
                 </Grid>
             </TabItem>
+            <TabItem Header="Markets" x:Name="Tab_Markets" Visibility="Visible">
+                <Grid Background="#FFE5E5E5">
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Top"
+                        Orientation="Vertical">
+                        <Label
+                            x:Name="lbl_markets_BitfinexCOM"
+                            Width="380"
+                            Height="30"
+                            HorizontalAlignment="Left"
+                            VerticalContentAlignment="Center"
+                            Content="BitfinexCOM" />
+                        <ListView
+                            x:Name="MarketsLV"
+                            Width="380"
+                            Height="370"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            local:GridViewSort.AutoSort="True"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn
+                                        Width="140"
+                                        local:GridViewSort.PropertyName="Pair"
+                                        DisplayMemberBinding="{Binding Pair}"
+                                        Header="Pair" />
+                                    <GridViewColumn
+                                        Width="70"
+                                        local:GridViewSort.PropertyName="BaseCurrency"
+                                        DisplayMemberBinding="{Binding BaseCurrency}"
+                                        Header="Base" />
+                                    <GridViewColumn
+                                        Width="70"
+                                        local:GridViewSort.PropertyName="QuoteCurrency"
+                                        DisplayMemberBinding="{Binding QuoteCurrency}"
+                                        Header="Quote" />
+                                    <GridViewColumn
+                                        Width="70"
+                                        local:GridViewSort.PropertyName="Date"
+                                        DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
+                                        Header="Age" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                       
+
+                  
+                    </StackPanel>
+                </Grid>
+            </TabItem>
             <TabItem x:Name="Tab_Log" Header="Log">
                 <Grid Background="#FFE5E5E5">
                     <StackPanel

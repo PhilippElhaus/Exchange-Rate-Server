@@ -46,6 +46,8 @@ namespace ExchangeRateServer
         internal WebSocketServer wssv;
         internal ObservableCollection<ExchangeRate> Rates = new ObservableCollection<ExchangeRate>();
         internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
+        internal ObservableCollection<MarketInfo> BitfinexMarkets = new ObservableCollection<MarketInfo>();
+
         internal List<(string, string, Services)> SpecificRequests = new List<(string, string, Services)>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesLongTerm = new Dictionary<(string, string), List<TimeData>>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesShortTerm = new Dictionary<(string, string), List<TimeData>>();
@@ -79,6 +81,7 @@ namespace ExchangeRateServer
             log.Information("Starting Up...");
 
             DGCurrencies.ItemsSource = Currencies;
+            MarketsLV.ItemsSource = BitfinexMarkets;
 
             InitFlags();
             InitConfig();
@@ -98,6 +101,9 @@ namespace ExchangeRateServer
                     CurrencyLV.ItemsSource = null;
                     CurrencyLV.ItemsSource = CurrenciesChange;
 
+                    MarketsLV.ItemsSource = null;
+                    MarketsLV.ItemsSource = BitfinexMarkets;
+
                     if (CountHistoricRate(out int count_short, out int count_long) == (0, 0))
                     {
                         lbl_exrates.Content = $"Exchange Rates ({Rates.Count})";
@@ -108,6 +114,8 @@ namespace ExchangeRateServer
                     }
 
                     if (REFERENCECURRENCY != null) lbl_currencies_change.Content = $"Currencies ({CurrenciesChange.Count}) | Relating to ";
+
+                    lbl_markets_BitfinexCOM.Content = $"Bitfinex ({BitfinexMarkets.Count})";
 
                     lbl_currencies.Content = $"Currencies ({Currencies.Count})";
                 });
@@ -159,6 +167,7 @@ namespace ExchangeRateServer
             });
 
             Loop_ExchangeRate();
+            Loop_Bitfinex_MarketInfo();
         }
 
         private void InitFlags()
@@ -1082,6 +1091,12 @@ namespace ExchangeRateServer
                         }
                     }
 
+                    if (query.Any(x => x.Succeess == false && x.error.Code == "104"))
+                    {
+                        log.Information("Fixer.io requests exceeded. [Pair]");
+                        return;
+                    }
+
                     RemovePreviousReferenceCurrency();
 
                     foreach (var currency in currencies)
@@ -1406,6 +1421,8 @@ namespace ExchangeRateServer
         {
             return Task.Run(async () =>
              {
+                 bool requestedOnce = false;
+
                  while (true)
                  {
                      AwaitOnline(Services.Fixer);
@@ -1416,6 +1433,17 @@ namespace ExchangeRateServer
                          {
                              var json = webclient.DownloadString($"http://data.fixer.io/api/symbols?access_key={FIXERAPIKEY}");
 
+                             var converter = JsonConvert.DeserializeObject<Fixer_JSON>(json);
+                             if (converter?.Succeess == false && converter.error.Code == "104")
+                             {
+                                 if (!requestedOnce)
+                                 {
+                                     log.Information($"Fixer.io requests exceeded. [Currencies]");
+
+                                     requestedOnce = true;
+                                 }
+                             }
+
                              json = json.Remove(0, json.IndexOf(":{") + 2);
                              json = json.Remove(json.IndexOf("}}"));
 
@@ -1424,7 +1452,7 @@ namespace ExchangeRateServer
                              FixerCurrencies = split.Where(x => x.Length == 5).Select(x => x.Trim('"')).ToList();
                          }
 
-                         log.Information($"Found {FixerCurrencies.Count} Currencies at Fixer.io");
+                         if (FixerCurrencies.Count() > 0) log.Information($"Found {FixerCurrencies.Count} Currencies at Fixer.io");
 
                          Dispatcher.Invoke(() =>
                          {
@@ -1441,7 +1469,8 @@ namespace ExchangeRateServer
                              }
                          });
 
-                         break;
+                        break;
+                       
                      }
                      catch (Exception ex)
                      {
@@ -1450,6 +1479,42 @@ namespace ExchangeRateServer
                      }
                  }
              });
+        }
+
+        // Bitfinex Markets
+
+        private void Loop_Bitfinex_MarketInfo()
+        {
+            Task.Run(async () =>
+            {
+                while (true)
+                {
+                    AwaitOnline(Services.Bitfinex);
+
+                    Activity();
+
+                    try
+                    {
+                        using (WebClient webClient = new WebClient())
+                        {
+                            var deserialized = JsonConvert.DeserializeObject<List<MarketInfo>>(webClient.DownloadString("https://api.bitfinex.com/v1/symbols_details"));
+
+                            Dispatcher.Invoke(() =>
+                            {
+                                BitfinexMarkets = new ObservableCollection<MarketInfo>(deserialized.Where(x => !x.Pair.Contains(":")));
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        log.Warning($"Error in Bitfinex Market Info: {ex.Message}");
+                    }
+                    finally
+                    {
+                        await Task.Delay(new TimeSpan(1, 0, 0));
+                    }
+                }
+            });
         }
 
         // WSS Server
@@ -1669,7 +1734,7 @@ namespace ExchangeRateServer
             });
         }
 
-        internal void WSS_AddTradingPair(string CCY1, string CCY2, string exchange) 
+        internal void WSS_AddTradingPair(string CCY1, string CCY2, string exchange)
         {
             Services Exchange = default;
             try
@@ -1729,7 +1794,7 @@ namespace ExchangeRateServer
                     {
                         success = success,
                         message = message,
-
+                        newPair = new RequestedPair() { CCY1 = CCY1, CCY2 = CCY2 },
                         info = ExchangeRateServerInfo.ExRateInfoType.SpecificPair
                     };
 
@@ -1737,6 +1802,39 @@ namespace ExchangeRateServer
                 }
 
                 Dispatcher.Invoke(() => { ExchangeRateInfo.Text = message; });
+            }
+        }
+
+        internal void WSS_SendMarketInfo(string exchange)
+        {
+            if (exchange.Equals("bitfinex", StringComparison.OrdinalIgnoreCase))
+            {
+                if (wssv != null)
+                {
+                    if (BitfinexMarkets?.Count() > 0)
+                    {
+                        var cast = new ExchangeRateServerInfo()
+                        {
+                            success = true,
+                            message = $"{BitfinexMarkets.Count()} Bitfinex Markets available.",
+                            markets = BitfinexMarkets.ToList(),
+                            info = ExchangeRateServerInfo.ExRateInfoType.Markets
+                        };
+
+                        wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
+                    }
+                    else
+                    {
+                        var cast = new ExchangeRateServerInfo()
+                        {
+                            success = false,
+                            message = "No Bitfinex Markets available.",
+                            info = ExchangeRateServerInfo.ExRateInfoType.Markets
+                        };
+
+                        wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
+                    }
+                }
             }
         }
 

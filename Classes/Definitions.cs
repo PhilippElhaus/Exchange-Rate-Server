@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -30,6 +31,40 @@ namespace ExchangeRateServer
     {
         public DateTime Time { get; set; }
         public double Rate { get; set; }
+    }
+
+    public class MarketInfo
+    {
+        private string pair;
+
+        public string Pair
+        {
+            get => pair;
+            set
+            {
+                value = value.ToUpper();
+
+                if (value.Contains(":"))
+                {
+                    var split = value.Split(':');
+                    pair = split[0] + split[1];
+                    BaseCurrency = split[0];
+                    QuoteCurrency = split[1];
+                }
+                else if (value.Length == 6)
+                {
+                    pair = value;
+                    BaseCurrency = value.Substring(0, 3);
+                    QuoteCurrency = value.Substring(3);
+                }
+
+                Date = DateTime.Now;
+            }
+        }
+
+        public string BaseCurrency { get; set; }
+        public string QuoteCurrency { get; set; }
+        public DateTime Date { get; set; }
     }
 
     [Serializable]
@@ -86,8 +121,8 @@ namespace ExchangeRateServer
         {
             return default;
         }
-    }    
-    
+    }
+
     public class ExchangeConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
@@ -111,8 +146,6 @@ namespace ExchangeRateServer
                 default:
                     return "";
             }
-
-
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
