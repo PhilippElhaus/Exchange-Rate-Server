@@ -1,5 +1,4 @@
-﻿using Newtonsoft.Json;
-using System;
+﻿using System;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -68,7 +67,7 @@ namespace ExchangeRateServer
     }
 
     [Serializable]
-    public class ExchangeRate : INotifyPropertyChanged
+    public class ExchangeRate : INotifyPropertyChanged, IComparable
     {
         private string ccy1;
         private string ccy2;
@@ -84,6 +83,13 @@ namespace ExchangeRateServer
 
         [field: NonSerialized]
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public int CompareTo(object obj)
+        {
+            var exr = obj as ExchangeRate;
+
+            return string.CompareOrdinal(CCY1 + CCY2, exr.CCY1 + exr.CCY2);
+        }
 
         protected void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
         {

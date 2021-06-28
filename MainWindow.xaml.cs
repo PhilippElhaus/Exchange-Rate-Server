@@ -58,8 +58,9 @@ namespace ExchangeRateServer
         private string REFERENCECURRENCY = "EUR";
 
         private int WSSPORT = 222;
-        private TimeSpan MAXAGEFIAT2FIATRATE = new TimeSpan(0, 0, 30);
+        private TimeSpan MAXAGEFIAT2FIATRATE = new TimeSpan(0, 10, 0);
         private TimeSpan MAXAGEMIXEDRATE = new TimeSpan(0, 0, 30);
+        private TimeSpan CUTOFF = new TimeSpan(0, 10, 0);
 
         private List<string> Currencies = new List<string>() { "USD", "EUR", "BTC", "ETH" };
 
@@ -400,11 +401,27 @@ namespace ExchangeRateServer
                                 }
                                 else if (request.Item3 == Services.Coinbase)
                                 {
-                                    if (CoinbaseCurrenices.Contains(request.Item1) && CoinbaseCurrenices.Contains(request.Item2))
-                                    {
-                                        await ExchangeRate_Coinbase(request.Item1);
-                                    }
+                                    await ExchangeRate_Coinbase(request.Item1);
                                 }
+                            }
+
+                            // Check for neccessary Cut Off's of outdated Rates from previous Exchanges
+
+                            var temp = Rates.Where(x => x.Date > DateTime.Now - CUTOFF);
+                      
+                            if (!temp.OrderBy(i => i).SequenceEqual(Rates.OrderBy(i => i)))
+                            {
+                                int count = Rates.Count() - temp.Count();
+
+                                Rates = new ObservableCollection<ExchangeRate>(temp);
+
+                                Dispatcher.Invoke(() =>
+                                {
+                                    ExchangeRatesLV.ItemsSource = null;
+                                    ExchangeRatesLV.ItemsSource = Rates;
+                                });
+
+                                log.Information($"Cut off {count} outdated rates.");
                             }
 
                             Dispatcher.Invoke(() => { ExchangeRateInfo.Text = "Visited all pairs."; });
@@ -510,7 +527,12 @@ namespace ExchangeRateServer
                                 {
                                     if (deserialized.data.Rates.ContainsKey(quote_currency))
                                     {
-                                        if (Rates.ToList().Exists(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Coinbase)) // Update
+                                        if(SpecificRequests.FirstOrDefault(x=>x.Item1 == base_currency && x.Item2 == quote_currency && x.Item3 != Services.Coinbase) != default)
+                                        {
+                                            continue;
+                                        }
+
+                                        if (Rates.ToList().Exists(x => x.CCY1 == base_currency && x.CCY2 == quote_currency)) // Update
                                         {
                                             var exrEntry = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Coinbase).Single();
 
@@ -736,7 +758,7 @@ namespace ExchangeRateServer
                         ExchangeRate rate = default;
                         Dispatcher.Invoke(() =>
                         {
-                            rate = Rates.Where(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Bitfinex).FirstOrDefault();
+                            rate = Rates.FirstOrDefault(x => x.CCY1 == base_currency && x.CCY2 == quote_currency && x.Exchange == Services.Bitfinex);
                         });
 
                         if (rate != default) // Update
@@ -1469,8 +1491,7 @@ namespace ExchangeRateServer
                              }
                          });
 
-                        break;
-                       
+                         break;
                      }
                      catch (Exception ex)
                      {
