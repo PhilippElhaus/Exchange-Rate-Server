@@ -408,7 +408,7 @@ namespace ExchangeRateServer
                             // Check for neccessary Cut Off's of outdated Rates from previous Exchanges
 
                             var temp = Rates.Where(x => x.Date > DateTime.Now - CUTOFF);
-                      
+
                             if (!temp.OrderBy(i => i).SequenceEqual(Rates.OrderBy(i => i)))
                             {
                                 int count = Rates.Count() - temp.Count();
@@ -527,7 +527,7 @@ namespace ExchangeRateServer
                                 {
                                     if (deserialized.data.Rates.ContainsKey(quote_currency))
                                     {
-                                        if(SpecificRequests.FirstOrDefault(x=>x.Item1 == base_currency && x.Item2 == quote_currency && x.Item3 != Services.Coinbase) != default)
+                                        if (SpecificRequests.FirstOrDefault(x => x.Item1 == base_currency && x.Item2 == quote_currency && x.Item3 != Services.Coinbase) != default)
                                         {
                                             continue;
                                         }
@@ -1113,7 +1113,7 @@ namespace ExchangeRateServer
                         }
                     }
 
-                    if (query.Any(x => x.Succeess == false && x.error.Code == "104"))
+                    if (query.Any(x => x.Succeess == false && x?.error?.Code == "104"))
                     {
                         log.Information("Fixer.io requests exceeded. [Pair]");
                         return;
@@ -1456,7 +1456,7 @@ namespace ExchangeRateServer
                              var json = webclient.DownloadString($"http://data.fixer.io/api/symbols?access_key={FIXERAPIKEY}");
 
                              var converter = JsonConvert.DeserializeObject<Fixer_JSON>(json);
-                             if (converter?.Succeess == false && converter.error.Code == "104")
+                             if (converter?.Succeess == false && converter?.error?.Code == "104")
                              {
                                  if (!requestedOnce)
                                  {
@@ -1755,108 +1755,110 @@ namespace ExchangeRateServer
             });
         }
 
-        internal void WSS_AddTradingPair(string CCY1, string CCY2, string exchange)
+        internal Task WSS_AddTradingPair(string CCY1, string CCY2, string exchange)
         {
-            Services Exchange = default;
-            try
+            return Task.Run(() =>
             {
-                Exchange = (Services)Enum.Parse(typeof(Services), exchange, true);
-            }
-            catch
-            {
-                ResultNotification($"Unable to process Exchange '{exchange}'.", false);
-
-                return;
-            }
-
-            if (SpecificRequests.Where(x => x.Item1 == CCY1 && x.Item2 == CCY2 && x.Item3 == Exchange).Any())
-            {
-                ResultNotification($"Already supported: [{CCY1}/{CCY2}] @ {exchange}", false);
-            }
-            else
-            {
-                if (Exchange == Services.Bitfinex)
+                Services Exchange = default;
+                try
                 {
-                    if (!BitfinexCurrenices.Contains(CCY1) || !BitfinexCurrenices.Contains(CCY2))
-                    {
-                        ResultNotification($"Not supported: [{CCY1}/{CCY2}] @ {exchange}", false);
-                    }
-                    else
-                    {
-                        Success();
-                        ResultNotification($"Added: [{CCY1}/{CCY2}] @ {exchange}", true);
-                    }
+                    Exchange = (Services)Enum.Parse(typeof(Services), exchange, true);
                 }
-                else if (Exchange == Services.Coinbase)
+                catch
                 {
-                    if (!CoinbaseCurrenices.Contains(CCY1) || !CoinbaseCurrenices.Contains(CCY2))
-                    {
-                        ResultNotification($"Not supported: [{CCY1}/{CCY2}] @ {exchange}", false);
-                    }
-                    else
-                    {
-                        Success();
-                        ResultNotification($"Added: [{CCY1}/{CCY2}] @ {exchange}", true);
-                    }
-                }
-            }
+                    ResultNotification($"Unable to process Exchange '{exchange}'.", false);
 
-            void Success()
-            {
-                SpecificRequests.Add((CCY1, CCY2, Exchange));
-                log.Information($"Added new Pair: [{CCY1}/{CCY2}] @ {exchange}");
-            }
-
-            void ResultNotification(string message, bool success)
-            {
-                if (wssv != null)
-                {
-                    var cast = new ExchangeRateServerInfo()
-                    {
-                        success = success,
-                        message = message,
-                        newPair = new RequestedPair() { CCY1 = CCY1, CCY2 = CCY2 },
-                        info = ExchangeRateServerInfo.ExRateInfoType.SpecificPair
-                    };
-
-                    wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
+                    return;
                 }
 
-                Dispatcher.Invoke(() => { ExchangeRateInfo.Text = message; });
-            }
+                if (SpecificRequests.Where(x => x.Item1 == CCY1 && x.Item2 == CCY2 && x.Item3 == Exchange).Any())
+                {
+                    ResultNotification($"Already supported: [{CCY1}/{CCY2}] @ {exchange}", false);
+                }
+                else
+                {
+                    if (Exchange == Services.Bitfinex)
+                    {
+                        if (!BitfinexCurrenices.Contains(CCY1) || !BitfinexCurrenices.Contains(CCY2))
+                        {
+                            ResultNotification($"Not supported: [{CCY1}/{CCY2}] @ {exchange}", false);
+                        }
+                        else
+                        {
+                            Success();
+                            ResultNotification($"Added: [{CCY1}/{CCY2}] @ {exchange}", true);
+                        }
+                    }
+                    else if (Exchange == Services.Coinbase)
+                    {
+                        if (!CoinbaseCurrenices.Contains(CCY1) || !CoinbaseCurrenices.Contains(CCY2))
+                        {
+                            ResultNotification($"Not supported: [{CCY1}/{CCY2}] @ {exchange}", false);
+                        }
+                        else
+                        {
+                            Success();
+                            ResultNotification($"Added: [{CCY1}/{CCY2}] @ {exchange}", true);
+                        }
+                    }
+                }
+
+                void Success()
+                {
+                    SpecificRequests.Add((CCY1, CCY2, Exchange));
+                    log.Information($"Added new Pair: [{CCY1}/{CCY2}] @ {exchange}");
+                }
+
+                void ResultNotification(string message, bool success)
+                {
+                    if (wssv != null)
+                    {
+                        var cast = new ExchangeRateServerInfo()
+                        {
+                            success = success,
+                            message = message,
+                            newPair = new RequestedPair() { CCY1 = CCY1, CCY2 = CCY2 },
+                            info = ExchangeRateServerInfo.ExRateInfoType.SpecificPair
+                        };
+
+                        wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
+                    }
+
+                    Dispatcher.Invoke(() => { ExchangeRateInfo.Text = message; });
+                }
+            });
         }
 
-        internal void WSS_SendMarketInfo(string exchange)
+        internal Task WSS_SendMarketInfo(string exchange)
         {
-            if (exchange.Equals("bitfinex", StringComparison.OrdinalIgnoreCase))
+            return Task.Run(() =>
             {
-                if (wssv != null)
+                if (exchange.Equals("bitfinex", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (BitfinexMarkets?.Count() > 0)
+                    if (wssv != null)
                     {
-                        var cast = new ExchangeRateServerInfo()
+                        if (BitfinexMarkets?.Count() > 0)
                         {
-                            success = true,
-                            message = $"{BitfinexMarkets.Count()} Bitfinex Markets available.",
-                            markets = BitfinexMarkets.ToList(),
-                            info = ExchangeRateServerInfo.ExRateInfoType.Markets
-                        };
-
-                        wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
-                    }
-                    else
-                    {
-                        var cast = new ExchangeRateServerInfo()
+                            wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(new ExchangeRateServerInfo()
+                            {
+                                success = true,
+                                message = $"{BitfinexMarkets.Count()} Bitfinex Markets available.",
+                                markets = BitfinexMarkets.ToList(),
+                                info = ExchangeRateServerInfo.ExRateInfoType.Markets
+                            }));
+                        }
+                        else
                         {
-                            success = false,
-                            message = "No Bitfinex Markets available.",
-                            info = ExchangeRateServerInfo.ExRateInfoType.Markets
-                        };
-
-                        wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(cast));
+                            wssv.WebSocketServices.Broadcast(JsonConvert.SerializeObject(new ExchangeRateServerInfo()
+                            {
+                                success = false,
+                                message = "No Bitfinex Markets available.",
+                                info = ExchangeRateServerInfo.ExRateInfoType.Markets
+                            }));
+                        }
                     }
                 }
-            }
+            });
         }
 
         // Utility

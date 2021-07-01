@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.ComponentModel;
 using System.Globalization;
 using System.Runtime.CompilerServices;
@@ -60,7 +61,8 @@ namespace ExchangeRateServer
                 Date = DateTime.Now;
             }
         }
-
+        [JsonProperty("minimum_order_size")]
+        public string MinimumOrder { get; set; }
         public string BaseCurrency { get; set; }
         public string QuoteCurrency { get; set; }
         public DateTime Date { get; set; }
