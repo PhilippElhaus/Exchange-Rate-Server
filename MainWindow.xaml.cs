@@ -1113,7 +1113,7 @@ namespace ExchangeRateServer
                         }
                     }
 
-                    if (query.Any(x => x.Succeess == false && x.error.Code == "104"))
+                    if (query.Any(x => x.Succeess == false && x?.error?.Code == "104"))
                     {
                         log.Information("Fixer.io requests exceeded. [Pair]");
                         return;
@@ -1456,7 +1456,7 @@ namespace ExchangeRateServer
                              var json = webclient.DownloadString($"http://data.fixer.io/api/symbols?access_key={FIXERAPIKEY}");
 
                              var converter = JsonConvert.DeserializeObject<Fixer_JSON>(json);
-                             if (converter?.Succeess == false && converter.error.Code == "104")
+                             if (converter?.Succeess == false && converter?.error?.Code == "104")
                              {
                                  if (!requestedOnce)
                                  {
