@@ -285,7 +285,7 @@
                         <ListView
                             x:Name="CurrencyLV"
                             Width="380"
-                            Height="375"
+                            Height="180"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"
                             local:GridViewSort.AutoSort="True"
@@ -326,10 +326,68 @@
                                 </GridView>
                             </ListView.View>
                         </ListView>
+                        <StackPanel Orientation="Horizontal">
+
+                            <Label Name="LBL_LV_Change_SpecificRequests" Height="25" VerticalAlignment="Center">Specific Requests</Label>
+                            <Button Height="20" Click="BTN_Click_ChangePullNow">Pull Now</Button>
+                        </StackPanel>
+
+                        <ListView
+                            x:Name="CurrencyLV_Specific"
+                            Width="380"
+                            Height="170"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            local:GridViewSort.AutoSort="True"
+                            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                            ScrollViewer.VerticalScrollBarVisibility="Visible" >
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn
+                                        Width="40"
+                                        local:GridViewSort.PropertyName="Currency"
+                                        DisplayMemberBinding="{Binding Currency}"
+                                        Header="CCY" /> 
+                                    <GridViewColumn
+                                        Width="40"
+                                        local:GridViewSort.PropertyName="Reference"
+                                        DisplayMemberBinding="{Binding Reference}"
+                                        Header="CCY" />
+                                    <GridViewColumn
+                                        Width="50"
+                                        local:GridViewSort.PropertyName="Change1h"
+                                        DisplayMemberBinding="{Binding Change1h}"
+                                        Header="1h" />
+                                    <GridViewColumn
+                                        Width="50"
+                                        local:GridViewSort.PropertyName="Change24h"
+                                        DisplayMemberBinding="{Binding Change24h}"
+                                        Header="24h" />
+                                    <GridViewColumn
+                                        Width="50"
+                                        local:GridViewSort.PropertyName="Change7d"
+                                        DisplayMemberBinding="{Binding Change7d}"
+                                        Header="7d" />
+                                    <GridViewColumn
+                                        Width="50"
+                                        local:GridViewSort.PropertyName="Change30d"
+                                        DisplayMemberBinding="{Binding Change30d}"
+                                        Header="30d" />
+                                    <GridViewColumn
+                                        Width="80"
+                                        local:GridViewSort.PropertyName="Date"
+                                        DisplayMemberBinding="{Binding Date, Converter={StaticResource TimeSinceLastUpdate}}"
+                                        Header="Age" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
                     </StackPanel>
                 </Grid>
             </TabItem>
-            <TabItem Header="Markets" x:Name="Tab_Markets" Visibility="Visible">
+            <TabItem
+                x:Name="Tab_Markets"
+                Header="Markets"
+                Visibility="Visible">
                 <Grid Background="#FFE5E5E5">
                     <StackPanel
                         HorizontalAlignment="Center"
@@ -375,9 +433,9 @@
                                 </GridView>
                             </ListView.View>
                         </ListView>
-                       
 
-                  
+
+
                     </StackPanel>
                 </Grid>
             </TabItem>

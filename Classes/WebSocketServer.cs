@@ -119,7 +119,7 @@ namespace ExchangeRateServer
                                 Main.ExchangeRateInfo.Text = $"Verifying Pair [{data[1]}/{data[2]}] @ {data[3]}...";
                             });
 
-                            await Main .WSS_AddTradingPair(data[1], data[2], data[3]);
+                            await Main.WSS_AddTradingPair(data[1], data[2], data[3]);
                         }
                         else
                         {

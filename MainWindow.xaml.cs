@@ -30,7 +30,7 @@ namespace ExchangeRateServer
         private double currentRAMusage;
         private DateTime appStartUp;
 
-        private bool cmcQuery;
+        private AutoResetEvent cmcQuery = new AutoResetEvent(true);
         private bool fixerQuery;
         private bool justAdded;
         private bool allCurrenciesIn => Currencies.Count * (Currencies.Count - 1) == Rates.Count ? true : false;
@@ -42,10 +42,12 @@ namespace ExchangeRateServer
         private object historyLock = new object();
         private object sendHistoryLock = new object();
         private object currencyChangeLock = new object();
+        private object currencyChange_SpecificLock = new object();
 
         internal WebSocketServer wssv;
         internal ObservableCollection<ExchangeRate> Rates = new ObservableCollection<ExchangeRate>();
         internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
+        internal ObservableCollection<Change> CurrenciesChange_Specific = new ObservableCollection<Change>();
         internal ObservableCollection<MarketInfo> BitfinexMarkets = new ObservableCollection<MarketInfo>();
 
         internal List<(string, string, Services)> SpecificRequests = new List<(string, string, Services)>();
@@ -102,6 +104,9 @@ namespace ExchangeRateServer
                     CurrencyLV.ItemsSource = null;
                     CurrencyLV.ItemsSource = CurrenciesChange;
 
+                    CurrencyLV_Specific.ItemsSource = null;
+                    CurrencyLV_Specific.ItemsSource = CurrenciesChange_Specific;
+
                     MarketsLV.ItemsSource = null;
                     MarketsLV.ItemsSource = BitfinexMarkets;
 
@@ -115,6 +120,17 @@ namespace ExchangeRateServer
                     }
 
                     if (REFERENCECURRENCY != null) lbl_currencies_change.Content = $"Currencies ({CurrenciesChange.Count}) | Relating to ";
+
+                    if (CurrenciesChange_Specific.Count > 0)
+                    {
+                        LBL_LV_Change_SpecificRequests.Content = $"Specific Requests ({CurrenciesChange_Specific.Count})";
+                        CurrencyLV_Specific.IsEnabled = true;
+                    }
+                    else
+                    {
+                        LBL_LV_Change_SpecificRequests.Content = $"Specific Requests";
+                        CurrencyLV_Specific.IsEnabled = false;
+                    }
 
                     lbl_markets_BitfinexCOM.Content = $"Bitfinex ({BitfinexMarkets.Count})";
 
@@ -600,6 +616,8 @@ namespace ExchangeRateServer
                                                 Rates.Add(exr);
                                             });
 
+                                            log.Information($"New Pair: [{exr.CCY1}/{exr.CCY2}] via Coinbase");
+
                                             if (!HistoricRatesLongTerm.ContainsKey((base_currency, quote_currency)))
                                             {
                                                 lock (historyLock)
@@ -940,6 +958,24 @@ namespace ExchangeRateServer
                     try
                     {
                         CMC_Query();
+
+                        foreach (var request in SpecificRequests)  // Request for Change 1h/24h/7d/30d
+                        {
+                            string reference = default;
+
+                            Dispatcher.Invoke(() =>
+                            {
+                                reference = ComboBox_ReferenceCurrency.SelectedItem as string ?? "";
+                            });
+
+                            if (!string.IsNullOrEmpty(reference))
+                            {
+                                if (!Currencies.Any(x => x == request.Item1 && reference == request.Item2))
+                                {
+                                    await CMC_Query_SpecificPair(request.Item1, request.Item2);
+                                }
+                            }
+                        }
                     }
                     finally
                     {
@@ -951,8 +987,9 @@ namespace ExchangeRateServer
 
         private async void CMC_Query(bool reference_change = false)
         {
-            if (cmcQuery || string.IsNullOrEmpty(CMCAPIKEY)) return;
-            else cmcQuery = true;
+            if (string.IsNullOrEmpty(CMCAPIKEY)) return;
+
+            await Task.Run(() => { cmcQuery.WaitOne(2500); });
 
             await Task.Run(async () =>
             {
@@ -1049,7 +1086,89 @@ namespace ExchangeRateServer
                 }
             });
 
-            cmcQuery = false;
+            cmcQuery.Set();
+        }
+
+        private Task CMC_Query_SpecificPair(string baseCurrency, string quoteCurrency,bool manual = false)
+        {
+            return Task.Run(async () =>
+            {
+                await Task.Run(() => { cmcQuery.WaitOne(2500); });
+
+                try
+                {
+                    AwaitOnline(Services.CMC);
+
+                    Activity();
+
+                    var entry = CurrenciesChange_Specific.FirstOrDefault(x => x.Currency == baseCurrency && x.Reference == quoteCurrency);
+
+                    if (entry != default && (DateTime.Now - new TimeSpan(0, 30, 0) < entry.Date) && manual == false) return;
+
+                    using (var client = new WebClient())
+                    {
+                        client.Headers.Add("X-CMC_PRO_API_KEY", CMCAPIKEY);
+                        client.Headers.Add("Accepts", "application/json");
+
+                        var url = $"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol={baseCurrency}&convert={quoteCurrency}&aux=volume_7d,volume_30d";
+                        var json = client.DownloadString(url);
+
+                        json = json.Replace("\"quote\":{\"" + $"{quoteCurrency}" + "\"", "\"quote\":{\"Currency\"");
+
+                        CMC_Change_JSON cmc = JsonConvert.DeserializeObject<CMC_Change_JSON>(json);
+
+                        var temp = new Change()
+                        {
+                            Reference = quoteCurrency,
+                            Currency = baseCurrency,
+                            Change1h = Math.Round(cmc.data[baseCurrency].quote.currency.percent_change_1h, 2),
+                            Change24h = Math.Round(cmc.data[baseCurrency].quote.currency.percent_change_24h, 2),
+                            Change7d = Math.Round(cmc.data[baseCurrency].quote.currency.percent_change_7d, 2),
+                            Change30d = Math.Round(cmc.data[baseCurrency].quote.currency.percent_change_30d, 2),
+                            Date = DateTime.Now
+                        };
+
+                        lock (currencyChange_SpecificLock)
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                if (entry == default)
+                                {
+                                    CurrenciesChange_Specific.Add(temp);
+                                }
+                                else
+                                {
+                                    CurrenciesChange_Specific.Remove(entry);
+
+                                    CurrenciesChange_Specific.Add(temp);
+                                }
+                            });
+                        }
+                    }
+                }
+                catch (Exception ex) when (ex.Message.Contains("408"))
+                {
+                    log.Error($"Error in Specific CMC Query: General Timeout");
+                }
+                catch (Exception ex) when (ex.Message.Contains("504"))
+                {
+                    log.Error($"Error in Specific CMC Query: Gateway Timeout");
+                }
+                catch (Exception ex) when (ex.Message.Contains("404"))
+                {
+                    log.Error("Error in Specific CMC Query: Not found");
+                }
+                catch (Exception ex) when (ex.Message.Contains("500"))
+                {
+                    log.Error("Error in Specific CMC Query: Internal Server Error");
+                }
+                catch (Exception ex)
+                {
+                    log.Error($"Error in Specific CMC Query: {ex.Short()}");
+                }
+
+                cmcQuery.Set();
+            });
         }
 
         // Fixer API
@@ -1583,7 +1702,7 @@ namespace ExchangeRateServer
                                 info = ExchangeRateServerInfo.ExRateInfoType.Rates,
                                 success = true,
                                 currencies = Currencies,
-                                currencies_change = CurrenciesChange?.ToList(),
+                                currencies_change = CurrenciesChange?.Union(CurrenciesChange_Specific).ToList(),
                                 rates = Rates?.ToList(),
                             }));
                         });
@@ -2017,6 +2136,22 @@ namespace ExchangeRateServer
 
         // Interface
 
+        private async void BTN_Click_ChangePullNow(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                foreach (var item in SpecificRequests)
+                {
+                    await CMC_Query_SpecificPair(item.Item1, item.Item2, true);
+                }
+
+            }
+            catch (Exception ex)
+            {
+                log.Information($"Error in Manual Change Pull: {ex.Short()}");
+            }
+        }
+
         internal void AddCurrency_Button(object sender, RoutedEventArgs e)
         {
             try
@@ -2089,5 +2224,8 @@ namespace ExchangeRateServer
         {
             App.Current.Shutdown();
         }
+
+
+       
     }
 }
