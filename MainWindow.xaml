@@ -333,14 +333,20 @@
                         </StackPanel>
 
                         <ListView
-                            x:Name="CurrencyLV_Specific"
+                            x:Name="LV_SpecificRequest"
                             Width="380"
                             Height="170"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"
                             local:GridViewSort.AutoSort="True"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                            ScrollViewer.VerticalScrollBarVisibility="Visible" >
+                            ScrollViewer.VerticalScrollBarVisibility="Visible"
+                            ContextMenuOpening="LV_SpecificRequests_CM_Opening">
+                            <ListView.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Click="BTN_Click_DeleteSpecificRequest" Header="Delete" />
+                                </ContextMenu>
+                            </ListView.ContextMenu>
                             <ListView.View>
                                 <GridView>
                                     <GridViewColumn

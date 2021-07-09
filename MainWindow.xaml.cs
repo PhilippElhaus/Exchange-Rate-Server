@@ -104,8 +104,8 @@ namespace ExchangeRateServer
                     CurrencyLV.ItemsSource = null;
                     CurrencyLV.ItemsSource = CurrenciesChange;
 
-                    CurrencyLV_Specific.ItemsSource = null;
-                    CurrencyLV_Specific.ItemsSource = CurrenciesChange_Specific;
+                    LV_SpecificRequest.ItemsSource = null;
+                    LV_SpecificRequest.ItemsSource = CurrenciesChange_Specific;
 
                     MarketsLV.ItemsSource = null;
                     MarketsLV.ItemsSource = BitfinexMarkets;
@@ -124,12 +124,12 @@ namespace ExchangeRateServer
                     if (CurrenciesChange_Specific.Count > 0)
                     {
                         LBL_LV_Change_SpecificRequests.Content = $"Specific Requests ({CurrenciesChange_Specific.Count})";
-                        CurrencyLV_Specific.IsEnabled = true;
+                        LV_SpecificRequest.IsEnabled = true;
                     }
                     else
                     {
                         LBL_LV_Change_SpecificRequests.Content = $"Specific Requests";
-                        CurrencyLV_Specific.IsEnabled = false;
+                        LV_SpecificRequest.IsEnabled = false;
                     }
 
                     lbl_markets_BitfinexCOM.Content = $"Bitfinex ({BitfinexMarkets.Count})";
@@ -979,7 +979,7 @@ namespace ExchangeRateServer
                     }
                     finally
                     {
-                        await Task.Delay(new TimeSpan(0, 5, 0)); // 5min
+                        await Task.Delay(new TimeSpan(1, 0, 0)); // 1h
                     }
                 }
             });
@@ -1089,7 +1089,7 @@ namespace ExchangeRateServer
             cmcQuery.Set();
         }
 
-        private Task CMC_Query_SpecificPair(string baseCurrency, string quoteCurrency,bool manual = false)
+        private Task CMC_Query_SpecificPair(string baseCurrency, string quoteCurrency, bool manual = false)
         {
             return Task.Run(async () =>
             {
@@ -1103,7 +1103,7 @@ namespace ExchangeRateServer
 
                     var entry = CurrenciesChange_Specific.FirstOrDefault(x => x.Currency == baseCurrency && x.Reference == quoteCurrency);
 
-                    if (entry != default && (DateTime.Now - new TimeSpan(0, 30, 0) < entry.Date) && manual == false) return;
+                    if (entry != default && (DateTime.Now - new TimeSpan(1, 0, 0) < entry.Date) && manual == false) return;
 
                     using (var client = new WebClient())
                     {
@@ -1161,6 +1161,10 @@ namespace ExchangeRateServer
                 catch (Exception ex) when (ex.Message.Contains("500"))
                 {
                     log.Error("Error in Specific CMC Query: Internal Server Error");
+                }
+                catch (Exception ex) when (ex.Message.Contains("400"))
+                {
+                    log.Error($"[{baseCurrency}/{quoteCurrency}] Changes unavailable at CMC.");
                 }
                 catch (Exception ex)
                 {
@@ -2144,7 +2148,6 @@ namespace ExchangeRateServer
                 {
                     await CMC_Query_SpecificPair(item.Item1, item.Item2, true);
                 }
-
             }
             catch (Exception ex)
             {
@@ -2225,7 +2228,43 @@ namespace ExchangeRateServer
             App.Current.Shutdown();
         }
 
+        private void BTN_Click_DeleteSpecificRequest(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                if (LV_SpecificRequest.SelectedItems != null)
+                {
+                    foreach ((string, string, Services) item in LV_SpecificRequest.SelectedItems)
+                    {
+                        SpecificRequests.Remove(item);
 
-       
+                        var change = CurrenciesChange_Specific.FirstOrDefault(x => x.Currency == item.Item1 && x.Reference == item.Item2);
+                        if (change != default)
+                        {
+                            Dispatcher.Invoke(() => { CurrenciesChange_Specific.Remove(change); });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Information($"Error in Deleting Executed Trade: {ex.Short()}");
+            }
+        }
+
+        private void LV_SpecificRequests_CM_Opening(object sender, ContextMenuEventArgs e)
+        {
+            try
+            {
+                if (LV_SpecificRequest.SelectedItem == null)
+                {
+                    e.Handled = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Information($"Error opening Executed Trade LV CM: {ex.Short()}");
+            }
+        }
     }
 }
