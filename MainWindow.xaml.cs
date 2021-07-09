@@ -51,6 +51,7 @@ namespace ExchangeRateServer
         internal ObservableCollection<MarketInfo> BitfinexMarkets = new ObservableCollection<MarketInfo>();
 
         internal List<(string, string, Services)> SpecificRequests = new List<(string, string, Services)>();
+        internal List<Change> SpecificRequests_Selected = new List<Change>(); // WorkAround
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesLongTerm = new Dictionary<(string, string), List<TimeData>>();
         internal Dictionary<(string, string), List<TimeData>> HistoricRatesShortTerm = new Dictionary<(string, string), List<TimeData>>();
 
@@ -60,9 +61,12 @@ namespace ExchangeRateServer
         private string REFERENCECURRENCY = "EUR";
 
         private int WSSPORT = 222;
-        private TimeSpan MAXAGEFIAT2FIATRATE = new TimeSpan(0, 10, 0);
-        private TimeSpan MAXAGEMIXEDRATE = new TimeSpan(0, 0, 30);
-        private TimeSpan CUTOFF = new TimeSpan(0, 10, 0);
+        private TimeSpan AGE_FIAT2FIAT_RATE = new TimeSpan(0, 10, 0);
+        private TimeSpan AGE_MIXEDRATE_RATE = new TimeSpan(0, 0, 30);
+        private TimeSpan AGE_CUTOFF_RATE = new TimeSpan(0, 10, 0);
+
+        private TimeSpan AGE_CMC_CHANGE = new TimeSpan(1, 0, 0);
+        private TimeSpan AGE_FIXER_CHANGE = new TimeSpan(1, 0, 0, 0);
 
         private List<string> Currencies = new List<string>() { "USD", "EUR", "BTC", "ETH" };
 
@@ -232,11 +236,11 @@ namespace ExchangeRateServer
                             }
                             else if (entry.StartsWith("MAXAGEFIAT2FIATRATE"))
                             {
-                                MAXAGEFIAT2FIATRATE = TimeSpan.FromSeconds(double.Parse(entry.Remove(0, entry.IndexOf("=") + 1)));
+                                AGE_FIAT2FIAT_RATE = TimeSpan.FromSeconds(double.Parse(entry.Remove(0, entry.IndexOf("=") + 1)));
                             }
                             else if (entry.StartsWith("MAXAGEMIXEDRATE"))
                             {
-                                MAXAGEMIXEDRATE = TimeSpan.FromSeconds(double.Parse(entry.Remove(0, entry.IndexOf("=") + 1)));
+                                AGE_MIXEDRATE_RATE = TimeSpan.FromSeconds(double.Parse(entry.Remove(0, entry.IndexOf("=") + 1)));
                             }
                         }
                         catch
@@ -423,7 +427,7 @@ namespace ExchangeRateServer
 
                             // Check for neccessary Cut Off's of outdated Rates from previous Exchanges
 
-                            var temp = Rates.Where(x => x.Date > DateTime.Now - CUTOFF);
+                            var temp = Rates.Where(x => x.Date > DateTime.Now - AGE_CUTOFF_RATE);
 
                             if (!temp.OrderBy(i => i).SequenceEqual(Rates.OrderBy(i => i)))
                             {
@@ -508,8 +512,8 @@ namespace ExchangeRateServer
             try
             {
                 TimeSpan maxAge = default;
-                if (MAXAGEFIAT2FIATRATE > MAXAGEMIXEDRATE) maxAge = MAXAGEMIXEDRATE;
-                else maxAge = MAXAGEFIAT2FIATRATE;
+                if (AGE_FIAT2FIAT_RATE > AGE_MIXEDRATE_RATE) maxAge = AGE_MIXEDRATE_RATE;
+                else maxAge = AGE_FIAT2FIAT_RATE;
 
                 if (!Rates.Where(x => x.CCY1 == base_currency).Any() || !Rates.Where(x => x.CCY2 == base_currency).Any() || Rates.Where(x => (x.CCY1 == base_currency || x.CCY2 == base_currency) && ((DateTime.Now - x.Date) > maxAge)).Any())
                 {
@@ -687,8 +691,8 @@ namespace ExchangeRateServer
                                 if (rate != default) // Update
                                 {
                                     TimeSpan maxAge = default;
-                                    if (Res.FIAT.Contains(base_currency) && Res.FIAT.Contains(quote_currency_)) maxAge = MAXAGEFIAT2FIATRATE;
-                                    else maxAge = MAXAGEMIXEDRATE;
+                                    if (Res.FIAT.Contains(base_currency) && Res.FIAT.Contains(quote_currency_)) maxAge = AGE_FIAT2FIAT_RATE;
+                                    else maxAge = AGE_MIXEDRATE_RATE;
 
                                     if ((DateTime.Now - rate.Date) > maxAge)
                                     {
@@ -782,8 +786,8 @@ namespace ExchangeRateServer
                         if (rate != default) // Update
                         {
                             TimeSpan maxAge = default;
-                            if (Res.FIAT.Contains(base_currency) && Res.FIAT.Contains(quote_currency)) maxAge = MAXAGEFIAT2FIATRATE;
-                            else maxAge = MAXAGEMIXEDRATE;
+                            if (Res.FIAT.Contains(base_currency) && Res.FIAT.Contains(quote_currency)) maxAge = AGE_FIAT2FIAT_RATE;
+                            else maxAge = AGE_MIXEDRATE_RATE;
 
                             if ((DateTime.Now - rate.Date) > maxAge)
                             {
@@ -979,7 +983,7 @@ namespace ExchangeRateServer
                     }
                     finally
                     {
-                        await Task.Delay(new TimeSpan(1, 0, 0)); // 1h
+                        await Task.Delay(AGE_CMC_CHANGE);
                     }
                 }
             });
@@ -1103,7 +1107,7 @@ namespace ExchangeRateServer
 
                     var entry = CurrenciesChange_Specific.FirstOrDefault(x => x.Currency == baseCurrency && x.Reference == quoteCurrency);
 
-                    if (entry != default && (DateTime.Now - new TimeSpan(1, 0, 0) < entry.Date) && manual == false) return;
+                    if (entry != default && (DateTime.Now - AGE_CMC_CHANGE < entry.Date) && manual == false) return;
 
                     using (var client = new WebClient())
                     {
@@ -1195,10 +1199,12 @@ namespace ExchangeRateServer
                     try
                     {
                         Fixer_Query();
+
+                        if (FixerCurrencies.Count == 0) await CheckFixerCurrencies(true);
                     }
                     finally
                     {
-                        await Task.Delay(new TimeSpan(1, 0, 0, 0));
+                        await Task.Delay(AGE_FIXER_CHANGE);
                     }
                 }
             });
@@ -1562,12 +1568,10 @@ namespace ExchangeRateServer
                  });
         }
 
-        private Task CheckFixerCurrencies()
+        private Task CheckFixerCurrencies(bool fromLoop = false)
         {
             return Task.Run(async () =>
              {
-                 bool requestedOnce = false;
-
                  while (true)
                  {
                      AwaitOnline(Services.Fixer);
@@ -1581,12 +1585,8 @@ namespace ExchangeRateServer
                              var converter = JsonConvert.DeserializeObject<Fixer_JSON>(json);
                              if (converter?.Succeess == false && converter?.error?.Code == "104")
                              {
-                                 if (!requestedOnce)
-                                 {
-                                     log.Information($"Fixer.io requests exceeded. [Currencies]");
-
-                                     requestedOnce = true;
-                                 }
+                                 if(!fromLoop) log.Information($"Fixer.io requests exceeded. [Currencies]");
+                                 break;
                              }
 
                              json = json.Remove(0, json.IndexOf(":{") + 2);
@@ -1929,6 +1929,9 @@ namespace ExchangeRateServer
                 void Success()
                 {
                     SpecificRequests.Add((CCY1, CCY2, Exchange));
+
+                    CMC_Query_SpecificPair(CCY1, CCY2);
+
                     log.Information($"Added new Pair: [{CCY1}/{CCY2}] @ {exchange}");
                 }
 
@@ -2182,6 +2185,54 @@ namespace ExchangeRateServer
             AddCurrency_Button(default, default);
         }
 
+        private void BTN_Click_DeleteSpecificRequest(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    if (LV_SpecificRequest.SelectedItems != null)
+                    {
+                        foreach (var item in SpecificRequests_Selected)
+                        {
+                            CurrenciesChange_Specific.Remove(item);
+
+                            var req = SpecificRequests.FirstOrDefault(x => x.Item1 == item.Currency && x.Item2 == item.Reference);
+
+                            if (req != default)
+                            {
+                                SpecificRequests.Remove(req);
+                            }
+                        }
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                log.Information($"Error in Deleting Specific Request: {ex.Short()}");
+            }
+        }
+
+        private void LV_SpecificRequests_CM_Opening(object sender, ContextMenuEventArgs e)
+        {
+            try
+            {
+                if (LV_SpecificRequest.SelectedItem == null)
+                {
+                    e.Handled = true;
+                }
+                else
+                {
+                    SpecificRequests_Selected = LV_SpecificRequest.SelectedItems.Cast<Change>().ToList();
+
+                }
+            }
+            catch (Exception ex)
+            {
+                log.Information($"Error opening Executed Trade LV CM: {ex.Short()}");
+            }
+        }
+
         private void ChangeInReferenceCurrency(object sender, SelectionChangedEventArgs e)
         {
             CMC_Query(true);
@@ -2226,45 +2277,6 @@ namespace ExchangeRateServer
         private void QuitApplication(object sender, RoutedEventArgs e)
         {
             App.Current.Shutdown();
-        }
-
-        private void BTN_Click_DeleteSpecificRequest(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                if (LV_SpecificRequest.SelectedItems != null)
-                {
-                    foreach ((string, string, Services) item in LV_SpecificRequest.SelectedItems)
-                    {
-                        SpecificRequests.Remove(item);
-
-                        var change = CurrenciesChange_Specific.FirstOrDefault(x => x.Currency == item.Item1 && x.Reference == item.Item2);
-                        if (change != default)
-                        {
-                            Dispatcher.Invoke(() => { CurrenciesChange_Specific.Remove(change); });
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                log.Information($"Error in Deleting Executed Trade: {ex.Short()}");
-            }
-        }
-
-        private void LV_SpecificRequests_CM_Opening(object sender, ContextMenuEventArgs e)
-        {
-            try
-            {
-                if (LV_SpecificRequest.SelectedItem == null)
-                {
-                    e.Handled = true;
-                }
-            }
-            catch (Exception ex)
-            {
-                log.Information($"Error opening Executed Trade LV CM: {ex.Short()}");
-            }
         }
     }
 }

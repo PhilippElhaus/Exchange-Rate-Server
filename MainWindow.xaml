@@ -339,6 +339,7 @@
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"
                             local:GridViewSort.AutoSort="True"
+                            SelectionMode="Multiple"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Visible"
                             ContextMenuOpening="LV_SpecificRequests_CM_Opening">
