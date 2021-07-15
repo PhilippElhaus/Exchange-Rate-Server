@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Media.Imaging;
@@ -8,12 +9,12 @@ namespace ExchangeRateServer
 {
     public static class Res
     {
-        public static readonly BitmapImage Red = new BitmapImage(new Uri(@"images\status_red.png", UriKind.Relative));
-        public static readonly BitmapImage Yellow = new BitmapImage(new Uri(@"images\status_yellow.png", UriKind.Relative));
-        public static readonly BitmapImage Green = new BitmapImage(new Uri(@"images\status_green.png", UriKind.Relative));
-        public static readonly System.Drawing.Icon On = new System.Drawing.Icon(@"images\green.ico");
-        public static readonly System.Drawing.Icon Off = new System.Drawing.Icon(@"images\red.ico");
-        public static readonly System.Drawing.Icon Connected = new System.Drawing.Icon(@"images\yellow.ico");
+        public static readonly BitmapImage Red = new(new Uri(@"images\status_red.png", UriKind.Relative));
+        public static readonly BitmapImage Yellow = new(new Uri(@"images\status_yellow.png", UriKind.Relative));
+        public static readonly BitmapImage Green = new(new Uri(@"images\status_green.png", UriKind.Relative));
+        public static readonly Icon On = new(@"images\green.ico");
+        public static readonly Icon Off = new(@"images\red.ico");
+        public static readonly Icon Connected = new(@"images\yellow.ico");
 
         public static readonly List<string> FIAT = new List<string>() { "USD", "EUR", "JPY", "CAD", "GBP", "CNY", "NZD", "AUD", "CHF" };
     }

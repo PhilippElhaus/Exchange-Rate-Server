@@ -43,7 +43,7 @@ namespace ExchangeRateServer
         private object sendHistoryLock = new object();
         private object currencyChangeLock = new object();
         private object currencyChange_SpecificLock = new object();
-
+        
         internal WebSocketServer wssv;
         internal ObservableCollection<ExchangeRate> Rates = new ObservableCollection<ExchangeRate>();
         internal ObservableCollection<Change> CurrenciesChange = new ObservableCollection<Change>();
@@ -81,7 +81,7 @@ namespace ExchangeRateServer
         public MainWindow()
         {
             InitializeComponent();
-
+            
             appStartUp = DateTime.Now;
             SysWsLog syswslog = new SysWsLog(this);
             log = new LoggerConfiguration().MinimumLevel.Debug().WriteTo.Sink(syswslog, LogEventLevel.Information).CreateLogger();
