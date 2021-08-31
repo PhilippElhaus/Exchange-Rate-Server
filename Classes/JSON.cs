@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace ExchangeRateServer
 {
-    public class CMC_Change_JSON
+    public class JSON_CMC_Change
     {
         public Dictionary<string, Data> data { get; set; }
 
@@ -27,7 +27,7 @@ namespace ExchangeRateServer
         }
     }
 
-    public class CMC_Currencies_JSON
+    public class JSON_CMC_Currencies
     {
         public class Data
         {
@@ -37,7 +37,7 @@ namespace ExchangeRateServer
         public List<Data> data { get; set; }
     }
 
-    public class Coinbase_JSON
+    public class JSON_Coinbase
     {
         public Data data { get; set; }
 
@@ -49,7 +49,7 @@ namespace ExchangeRateServer
         }
     }
 
-    public class Coinbase_Currencies_JSON
+    public class JSON_Coinbase_Currencies
     {
         public Data[] data { get; set; }
 
@@ -61,7 +61,7 @@ namespace ExchangeRateServer
         }
     }
 
-    public class Fixer_JSON
+    public class JSON_Fixer
     {
         public bool Succeess { get; set; }
 

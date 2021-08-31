@@ -9,7 +9,10 @@ namespace ExchangeRateServer
 {
     public partial class App : Application
     {
-        public static bool flag_log = false;
+        internal static bool flag_log;
+        internal static bool flag_debug;
+
+        private readonly static CultureInfo Culture = new("en-US");
 
         private const string UniqueEventName = "{3596C906-E192-47BD-B890-B79591261EDD}";
         private EventWaitHandle eventWaitHandle;
@@ -18,44 +21,44 @@ namespace ExchangeRateServer
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             SingleInstanceWatcher();
-            CultureInfo.DefaultThreadCurrentCulture = new CultureInfo("en-US");
+            CultureInfo.DefaultThreadCurrentCulture = Culture;
         }
 
         private void SingleInstanceWatcher()
         {
             try
             {
-                this.eventWaitHandle = EventWaitHandle.OpenExisting(UniqueEventName);
-                this.eventWaitHandle.Set();
-                this.Shutdown();
+                eventWaitHandle = EventWaitHandle.OpenExisting(UniqueEventName);
+                _ = eventWaitHandle.Set();
+                Shutdown();
             }
             catch (WaitHandleCannotBeOpenedException)
             {
-                this.eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, UniqueEventName);
+                eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, UniqueEventName);
             }
 
             new Task(() =>
             {
-                while (this.eventWaitHandle.WaitOne())
+                while (eventWaitHandle.WaitOne())
                 {
-                    Current.Dispatcher.BeginInvoke((Action)(() =>
-                    {
-                        if (!Current.MainWindow.Equals(null))
-                        {
-                            var mw = Current.MainWindow;
+                    _ = Current.Dispatcher.BeginInvoke((Action)(() =>
+                      {
+                          if (!Current.MainWindow.Equals(null))
+                          {
+                              var mw = Current.MainWindow;
 
-                            if (mw.WindowState == WindowState.Minimized || mw.Visibility != Visibility.Visible)
-                            {
-                                mw.Show();
-                                mw.WindowState = WindowState.Normal;
-                            }
+                              if (mw.WindowState == WindowState.Minimized || mw.Visibility != Visibility.Visible)
+                              {
+                                  mw.Show();
+                                  mw.WindowState = WindowState.Normal;
+                              }
 
-                            mw.Activate();
-                            mw.Topmost = true;
-                            mw.Topmost = false;
-                            mw.Focus();
-                        }
-                    }));
+                              _ = mw.Activate();
+                              mw.Topmost = true;
+                              mw.Topmost = false;
+                              _ = mw.Focus();
+                          }
+                      }));
                 }
             })
             .Start();
@@ -65,13 +68,26 @@ namespace ExchangeRateServer
         {
             ShutdownMode = ShutdownMode.OnMainWindowClose;
 
-            Current.DispatcherUnhandledException += (x, ex) => { File.AppendAllText("exception.txt", "Unknown Application Wide Exception: " + ex.Exception.Message + "\n" + ex.Exception.StackTrace); };
+            Current.DispatcherUnhandledException += (x, ex) =>
+            {
+                if (!Directory.Exists("log"))
+                {
+                    _ = Directory.CreateDirectory("log");
+                };
 
-            for (int i = 0; i != e.Args.Length; ++i)
+                File.AppendAllText(@"log\crash.txt", "Unknown Application Wide Exception: " + ex.Exception.Message + "\n" + ex.Exception.StackTrace);
+            };
+
+            for (var i = 0; i != e.Args.Length; ++i)
             {
                 if (e.Args[i] == "/log")
                 {
                     flag_log = true;
+                }
+
+                if (e.Args[i] == "/debug")
+                {
+                    flag_debug = true;
                 }
             }
 

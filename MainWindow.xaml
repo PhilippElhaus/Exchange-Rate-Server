@@ -6,10 +6,9 @@
     xmlns:local="clr-namespace:ExchangeRateServer"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:tb="http://www.hardcodet.net/taskbar"
-    Title="ExchangeRate Server"
     Width="420"
     Height="500"
-    Closing="ClosingMainWindow"
+    Closing="MainWindow_Closing"
     ResizeMode="NoResize"
     ShowInTaskbar="False"
     mc:Ignorable="d">
@@ -21,7 +20,7 @@
         <tb:TaskbarIcon
             x:Name="TaskBarIcon"
             PopupActivation="LeftClick"
-            TrayMouseDoubleClick="VPNTaskBarIcon_TrayMouseDoubleClick">
+            TrayMouseDoubleClick="TrayIcon_MouseDoubleClick">
             <tb:TaskbarIcon.TrayPopup>
                 <StackPanel
                     Width="200"
@@ -43,12 +42,11 @@
                         Height="25"
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        Click="QuitApplication"
+                        Click="Quit"
                         Content="Quit" />
                 </StackPanel>
             </tb:TaskbarIcon.TrayPopup>
         </tb:TaskbarIcon>
-
         <StatusBar
             Height="25"
             VerticalAlignment="Bottom"
@@ -115,14 +113,14 @@
                         VerticalAlignment="Top"
                         Orientation="Vertical">
                         <Label
-                            x:Name="lbl_exrates"
+                            x:Name="LBL_Rates"
                             Width="265"
                             Height="30"
                             HorizontalAlignment="Left"
                             VerticalContentAlignment="Center"
                             Content="Exchange Rates" />
                         <ListView
-                            x:Name="ExchangeRatesLV"
+                            x:Name="LV_Rates"
                             Width="265"
                             Height="275"
                             HorizontalAlignment="Left"
@@ -133,14 +131,14 @@
                                 <GridView>
                                     <GridViewColumn
                                         Width="40"
-                                        local:GridViewSort.PropertyName="CCY1"
-                                        DisplayMemberBinding="{Binding CCY1}"
-                                        Header="CCY1" />
+                                        local:GridViewSort.PropertyName="Base"
+                                        DisplayMemberBinding="{Binding Base}"
+                                        Header="Base" />
                                     <GridViewColumn
                                         Width="40"
-                                        local:GridViewSort.PropertyName="CCY2"
-                                        DisplayMemberBinding="{Binding CCY2}"
-                                        Header="CCY2" />
+                                        local:GridViewSort.PropertyName="Quote"
+                                        DisplayMemberBinding="{Binding Quote}"
+                                        Header="Quote" />
                                     <GridViewColumn
                                         Width="80"
                                         local:GridViewSort.PropertyName="Rate"
@@ -165,7 +163,7 @@
                         VerticalAlignment="Top"
                         Orientation="Vertical">
                         <Label
-                            x:Name="lbl_currencies"
+                            x:Name="LBL_Currencies"
                             Width="100"
                             Height="30"
                             HorizontalAlignment="Left"
@@ -173,7 +171,7 @@
                             VerticalContentAlignment="Center"
                             Content="Currencies" />
                         <DataGrid
-                            x:Name="DGCurrencies"
+                            x:Name="DG_Currencies"
                             Grid.Row="0"
                             Grid.Column="0"
                             Width="100"
@@ -200,7 +198,7 @@
                         Orientation="Vertical">
                         <StackPanel Margin="0,0,0,0" Orientation="Horizontal">
                             <TextBox
-                                x:Name="currencyInput"
+                                x:Name="TB_CurrencyInput"
                                 Grid.Row="1"
                                 Width="30"
                                 Height="20"
@@ -217,7 +215,7 @@
                                 Height="20"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
-                                Click="AddCurrency_Button"
+                                Click="BTN_Click_AddCurrency"
                                 Content="Add" />
                         </StackPanel>
                         <StackPanel Margin="0,5,0,0" Orientation="Horizontal">
@@ -283,7 +281,7 @@
                                 SelectedIndex="0" />
                         </StackPanel>
                         <ListView
-                            x:Name="CurrencyLV"
+                            x:Name="LV_Currencies"
                             Width="380"
                             Height="180"
                             HorizontalAlignment="Left"
@@ -295,9 +293,9 @@
                                 <GridView>
                                     <GridViewColumn
                                         Width="40"
-                                        local:GridViewSort.PropertyName="BaseCurrency"
-                                        DisplayMemberBinding="{Binding Currency}"
-                                        Header="CCY" />
+                                        local:GridViewSort.PropertyName="Base"
+                                        DisplayMemberBinding="{Binding Base}"
+                                        Header="Base" />
                                     <GridViewColumn
                                         Width="60"
                                         local:GridViewSort.PropertyName="Change1h"
@@ -328,21 +326,26 @@
                         </ListView>
                         <StackPanel Orientation="Horizontal">
 
-                            <Label Name="LBL_LV_Change_SpecificRequests" Height="25" VerticalAlignment="Center">Specific Requests</Label>
+                            <Label
+                                Name="LBL_LV_Change_Requests"
+                                Height="25"
+                                VerticalAlignment="Center">
+                                Specific Requests
+                            </Label>
                             <Button Height="20" Click="BTN_Click_ChangePullNow">Pull Now</Button>
                         </StackPanel>
 
                         <ListView
-                            x:Name="LV_SpecificRequest"
+                            x:Name="LV_Requests"
                             Width="380"
                             Height="170"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"
                             local:GridViewSort.AutoSort="True"
-                            SelectionMode="Multiple"
+                            ContextMenuOpening="LV_SpecificRequests_CM_Opening"
                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                             ScrollViewer.VerticalScrollBarVisibility="Visible"
-                            ContextMenuOpening="LV_SpecificRequests_CM_Opening">
+                            SelectionMode="Multiple">
                             <ListView.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Click="BTN_Click_DeleteSpecificRequest" Header="Delete" />
@@ -352,14 +355,14 @@
                                 <GridView>
                                     <GridViewColumn
                                         Width="40"
-                                        local:GridViewSort.PropertyName="Currency"
-                                        DisplayMemberBinding="{Binding Currency}"
-                                        Header="CCY" /> 
+                                        local:GridViewSort.PropertyName="Base"
+                                        DisplayMemberBinding="{Binding Base}"
+                                        Header="Base" />
                                     <GridViewColumn
                                         Width="40"
-                                        local:GridViewSort.PropertyName="Reference"
-                                        DisplayMemberBinding="{Binding Reference}"
-                                        Header="CCY" />
+                                        local:GridViewSort.PropertyName="Quote"
+                                        DisplayMemberBinding="{Binding Quote}"
+                                        Header="Quote" />
                                     <GridViewColumn
                                         Width="50"
                                         local:GridViewSort.PropertyName="Change1h"
@@ -401,14 +404,14 @@
                         VerticalAlignment="Top"
                         Orientation="Vertical">
                         <Label
-                            x:Name="lbl_markets_BitfinexCOM"
+                            x:Name="LBL_Markets_Bitfinex"
                             Width="380"
                             Height="30"
                             HorizontalAlignment="Left"
                             VerticalContentAlignment="Center"
                             Content="BitfinexCOM" />
                         <ListView
-                            x:Name="MarketsLV"
+                            x:Name="LV_Markets"
                             Width="380"
                             Height="370"
                             HorizontalAlignment="Left"
@@ -424,13 +427,13 @@
                                         Header="Pair" />
                                     <GridViewColumn
                                         Width="70"
-                                        local:GridViewSort.PropertyName="BaseCurrency"
-                                        DisplayMemberBinding="{Binding BaseCurrency}"
+                                        local:GridViewSort.PropertyName="Base"
+                                        DisplayMemberBinding="{Binding Base}"
                                         Header="Base" />
                                     <GridViewColumn
                                         Width="70"
-                                        local:GridViewSort.PropertyName="QuoteCurrency"
-                                        DisplayMemberBinding="{Binding QuoteCurrency}"
+                                        local:GridViewSort.PropertyName="Quote"
+                                        DisplayMemberBinding="{Binding Quote}"
                                         Header="Quote" />
                                     <GridViewColumn
                                         Width="70"
@@ -440,9 +443,6 @@
                                 </GridView>
                             </ListView.View>
                         </ListView>
-
-
-
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -453,22 +453,25 @@
                         VerticalAlignment="Top"
                         Orientation="Vertical">
                         <Grid Height="30">
-                            <Label
+                            <Button
                                 x:Name="LBL_SysLog"
                                 Height="30"
                                 HorizontalAlignment="Left"
                                 VerticalAlignment="Top"
-                                VerticalContentAlignment="Center">
+                                VerticalContentAlignment="Center"
+                                Background="#FFE5E5E5"
+                                BorderThickness="0"
+                                Click="BTN_Click_ShowLogFile"
+                                MouseRightButtonDown="BTN_RightClick_ClearLogFile">
                                 System Log
-                            </Label>
+                            </Button>
                             <Button
                                 Height="20"
                                 HorizontalAlignment="Right"
-                                Click="ClearLog">
+                                Click="SysLog_Clear">
                                 Clear
                             </Button>
                         </Grid>
-
                         <TextBox
                             x:Name="SystemLog"
                             Width="380"

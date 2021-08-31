@@ -18,8 +18,8 @@ namespace ExchangeRateServer
 
     public class Change
     {
-        public string Reference { get; set; }
-        public string Currency { get; set; }
+        public string Base { get; set; }
+        public string Quote { get; set; }
         public double Change1h { get; set; }
         public double Change24h { get; set; }
         public double Change7d { get; set; }
@@ -33,7 +33,7 @@ namespace ExchangeRateServer
         public double Rate { get; set; }
     }
 
-    public class MarketInfo
+    public class Market
     {
         private string pair;
 
@@ -48,14 +48,14 @@ namespace ExchangeRateServer
                 {
                     var split = value.Split(':');
                     pair = split[0] + split[1];
-                    BaseCurrency = split[0];
-                    QuoteCurrency = split[1];
+                    Base = split[0];
+                    Quote = split[1];
                 }
                 else if (value.Length == 6)
                 {
                     pair = value;
-                    BaseCurrency = value.Substring(0, 3);
-                    QuoteCurrency = value.Substring(3);
+                    Base = value.Substring(0, 3);
+                    Quote = value.Substring(3);
                 }
 
                 Date = DateTime.Now;
@@ -63,22 +63,22 @@ namespace ExchangeRateServer
         }
         [JsonProperty("minimum_order_size")]
         public string MinimumOrder { get; set; }
-        public string BaseCurrency { get; set; }
-        public string QuoteCurrency { get; set; }
+        public string Base { get; set; }
+        public string Quote { get; set; }
         public DateTime Date { get; set; }
     }
 
     [Serializable]
     public class ExchangeRate : INotifyPropertyChanged, IComparable
     {
-        private string ccy1;
-        private string ccy2;
+        private string @base;
+        private string quote;
         private decimal rate;
         private DateTime date;
         private Services exchange;
 
-        public string CCY1 { get { return ccy1; } set { if (value != ccy1) { ccy1 = value; NotifyPropertyChanged(); } } }
-        public string CCY2 { get { return ccy2; } set { if (value != ccy2) { ccy2 = value; NotifyPropertyChanged(); } } }
+        public string Base { get { return @base; } set { if (value != @base) { @base = value; NotifyPropertyChanged(); } } }
+        public string Quote { get { return quote; } set { if (value != quote) { quote = value; NotifyPropertyChanged(); } } }
         public decimal Rate { get { return rate; } set { if (value != rate) { rate = value; NotifyPropertyChanged(); } } }
         public DateTime Date { get { return date; } set { if (value != date) { date = value; NotifyPropertyChanged(); } } }
         public Services Exchange { get { return exchange; } set { if (value != exchange) { exchange = value; NotifyPropertyChanged(); } } }
@@ -90,7 +90,7 @@ namespace ExchangeRateServer
         {
             var exr = obj as ExchangeRate;
 
-            return string.CompareOrdinal(CCY1 + CCY2, exr.CCY1 + exr.CCY2);
+            return string.CompareOrdinal(Base + Quote, exr.Base + exr.Quote);
         }
 
         protected void NotifyPropertyChanged([CallerMemberName] string propertyName = "")
