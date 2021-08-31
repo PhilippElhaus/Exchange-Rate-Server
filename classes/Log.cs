@@ -33,7 +33,7 @@ namespace ExchangeRateServer
                     if (Main.SystemLog.Text.Length > 16384) Main.SystemLog.Text = string.Empty;
                     Main.SystemLog.AppendText(txt + "\n");
 
-                    Main.LBL_SysLog.Content = $"System Log ({Main.SystemLog.Text.Length})";
+                    Main.LBL_SysLog.Content = $"Log ({Main.SystemLog.Text.Length})";
                 });
 
                 lock (fileAccessLock_syslog)

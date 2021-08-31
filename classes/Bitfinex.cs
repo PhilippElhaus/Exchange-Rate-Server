@@ -263,7 +263,7 @@ namespace ExchangeRateServer
                                     });
                                 });
 
-                                log.Information($"New Pair: [{base_currency}/{quote_currency}] via Bitfinex");
+                                log.Information($"[{base_currency}/{quote_currency}] via Bitfinex");
 
                                 // Check for Pre-Created Historic Entries
 

@@ -146,11 +146,13 @@ namespace ExchangeRateServer
                     {
                         LBL_LV_Change_Requests.Content = $"Specific Requests ({Change_Specific.Count})";
                         LV_Requests.IsEnabled = true;
+                        BTN_Specific_Requests_Pull.IsEnabled = true;
                     }
                     else
                     {
                         LBL_LV_Change_Requests.Content = $"Specific Requests";
                         LV_Requests.IsEnabled = false;
+                        BTN_Specific_Requests_Pull.IsEnabled = false;
                     }
 
                     LBL_Markets_Bitfinex.Content = $"Bitfinex ({Markets_Bitfinex.Count})";

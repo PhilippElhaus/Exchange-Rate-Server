@@ -61,8 +61,10 @@ namespace ExchangeRateServer
                 Date = DateTime.Now;
             }
         }
+
         [JsonProperty("minimum_order_size")]
         public string MinimumOrder { get; set; }
+
         public string Base { get; set; }
         public string Quote { get; set; }
         public DateTime Date { get; set; }

@@ -332,7 +332,12 @@
                                 VerticalAlignment="Center">
                                 Specific Requests
                             </Label>
-                            <Button Height="20" Click="BTN_Click_ChangePullNow">Pull Now</Button>
+                            <Button
+                                Name="BTN_Specific_Requests_Pull"
+                                Height="20"
+                                Click="BTN_Click_ChangePullNow">
+                                Pull Now
+                            </Button>
                         </StackPanel>
 
                         <ListView
@@ -409,7 +414,7 @@
                             Height="30"
                             HorizontalAlignment="Left"
                             VerticalContentAlignment="Center"
-                            Content="BitfinexCOM" />
+                            Content="Bitfinex" />
                         <ListView
                             x:Name="LV_Markets"
                             Width="380"
@@ -463,7 +468,7 @@
                                 BorderThickness="0"
                                 Click="BTN_Click_ShowLogFile"
                                 MouseRightButtonDown="BTN_RightClick_ClearLogFile">
-                                System Log
+                                Log
                             </Button>
                             <Button
                                 Height="20"

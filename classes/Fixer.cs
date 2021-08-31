@@ -181,7 +181,7 @@ namespace ExchangeRateServer
 
                 while (true)
                 {
-                   _ = AwaitOnline(Services.Fixer);
+                    _ = AwaitOnline(Services.Fixer);
 
                     try
                     {
@@ -195,7 +195,7 @@ namespace ExchangeRateServer
                                 if (!fromLoop) log.Information($"Fixer.io requests exceeded. [Currencies]");
                                 break;
                             }
-                        
+
                             json = json.Remove(0, json.IndexOf(":{") + 2);
                             json = json.Remove(json.IndexOf("}}"));
 

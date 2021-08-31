@@ -282,7 +282,7 @@ namespace ExchangeRateServer
 
                     Query_CMC_Specific(CCY1, CCY2);
 
-                    log.Information($"Added new Pair: [{CCY1}/{CCY2}] @ {exchange}");
+                    log.Information($"[{CCY1}/{CCY2}] via {exchange}");
                 }
 
                 void ResultNotification(string message, bool success)
