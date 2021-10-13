@@ -35,6 +35,10 @@ namespace ExchangeRateServer
                             });
                         }
                     }
+                    catch (Exception ex) when (ex.Message.Contains("Service Temporarily Unavailable") || ex.Message.Contains("503"))
+                    {
+                        Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"BFX Markets temporarily unavailable..."; });
+                    }
                     catch (Exception ex)
                     {
                         log.Error($"Bitfinex Market Info: {ex.Short()}");
@@ -75,6 +79,12 @@ namespace ExchangeRateServer
                             log.Information($"Found {currencies.Length} Currencies at Bitfinex.");
                             break;
                         }
+                    }
+                    catch (Exception ex) when (ex.Message.Contains("Service Temporarily Unavailable") || ex.Message.Contains("503"))
+                    {
+
+                        Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"BFX Currencies temporarily unavailable..."; });
+
                     }
                     catch (Exception ex)
                     {
@@ -128,7 +138,7 @@ namespace ExchangeRateServer
                                                 {
                                                     History_Long[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                                    if (DateTime.Now - new TimeSpan(7, 0, 0, 0) > History_Long[(base_currency, quote_currency_)][0].Time)
+                                                    if (DateTime.Now - maxAgeLongHistory > History_Long[(base_currency, quote_currency_)][0].Time)
                                                     {
                                                         History_Long[(base_currency, quote_currency_)].RemoveAt(0);
                                                     }
@@ -141,7 +151,7 @@ namespace ExchangeRateServer
                                                 {
                                                     History_Short[(base_currency, quote_currency_)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                                    if (DateTime.Now - new TimeSpan(1, 0, 0) > History_Short[(base_currency, quote_currency_)][0].Time)
+                                                    if (DateTime.Now - maxAgeShortHistory > History_Short[(base_currency, quote_currency_)][0].Time)
                                                     {
                                                         History_Short[(base_currency, quote_currency_)].RemoveAt(0);
                                                     }
@@ -223,7 +233,7 @@ namespace ExchangeRateServer
                                         {
                                             History_Long[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                            if (DateTime.Now - new TimeSpan(7, 0, 0, 0) > History_Long[(base_currency, quote_currency)][0].Time)
+                                            if (DateTime.Now - maxAgeLongHistory > History_Long[(base_currency, quote_currency)][0].Time)
                                             {
                                                 History_Long[(base_currency, quote_currency)].RemoveAt(0);
                                             }
@@ -236,7 +246,7 @@ namespace ExchangeRateServer
                                         {
                                             History_Short[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)res });
 
-                                            if (DateTime.Now - new TimeSpan(1, 0, 0) > History_Short[(base_currency, quote_currency)][0].Time)
+                                            if (DateTime.Now - maxAgeShortHistory > History_Short[(base_currency, quote_currency)][0].Time)
                                             {
                                                 History_Short[(base_currency, quote_currency)].RemoveAt(0);
                                             }
@@ -345,6 +355,11 @@ namespace ExchangeRateServer
                 catch (Exception ex) when (ex.Message.Contains("The remote name could not be resolved"))
                 {
                     Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"DNS resolving DNS: [{ccy1}/{ccy2}]"; });
+                    return default;
+                } 
+                catch (Exception ex) when (ex.Message.Contains("This is usually a temporary error during hostname resolution"))
+                {
+                    Dispatcher.Invoke(() => { ExchangeRateInfo.Text = $"Hostname Resolution Problem: [{ccy1}/{ccy2}]"; });
                     return default;
                 }
                 catch (Exception ex)

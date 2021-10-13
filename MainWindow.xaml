@@ -5,48 +5,17 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="clr-namespace:ExchangeRateServer"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:tb="http://www.hardcodet.net/taskbar"
     Width="420"
     Height="500"
-    Closing="MainWindow_Closing"
-    ResizeMode="NoResize"
-    ShowInTaskbar="False"
+    Closing="Application_Exiting"
+    ResizeMode="CanMinimize"
+    ShowInTaskbar="True"
     mc:Ignorable="d">
     <Window.Resources>
         <local:TimeSinceLastUpdate x:Key="TimeSinceLastUpdate" />
         <local:ExchangeConverter x:Key="ExchangeConverter" />
     </Window.Resources>
     <DockPanel Background="#FFE5E5E5" LastChildFill="True">
-        <tb:TaskbarIcon
-            x:Name="TaskBarIcon"
-            PopupActivation="LeftClick"
-            TrayMouseDoubleClick="TrayIcon_MouseDoubleClick">
-            <tb:TaskbarIcon.TrayPopup>
-                <StackPanel
-                    Width="200"
-                    Height="80"
-                    Margin="50"
-                    Background="LightGray"
-                    Orientation="Vertical">
-                    <TextBlock
-                        Margin="0,10,0,10"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="16"
-                        FontWeight="Bold">
-                        Exchange Rate Server
-                    </TextBlock>
-                    <Button
-                        x:Name="QuitApplicationButton"
-                        Width="60"
-                        Height="25"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        Click="Quit"
-                        Content="Quit" />
-                </StackPanel>
-            </tb:TaskbarIcon.TrayPopup>
-        </tb:TaskbarIcon>
         <StatusBar
             Height="25"
             VerticalAlignment="Bottom"
@@ -483,6 +452,7 @@
                             Height="375"
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
+                            IsReadOnly="True"
                             ScrollViewer.VerticalScrollBarVisibility="Visible"
                             TextWrapping="Wrap" />
                     </StackPanel>

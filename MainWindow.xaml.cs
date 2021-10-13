@@ -54,6 +54,9 @@ namespace ExchangeRateServer
         internal Dictionary<(string, string), List<TimeData>> History_Long = new();
         internal Dictionary<(string, string), List<TimeData>> History_Short = new();
 
+        private TimeSpan maxAgeLongHistory = new(30, 0, 0, 0);
+        private TimeSpan maxAgeShortHistory = new(1, 0, 0, 0);
+
         private string CMCAPIKEY;
         private string FIXERAPIKEY;
         private string WSSENDPOINT = "/rates";
@@ -272,8 +275,6 @@ namespace ExchangeRateServer
                         {
                             Dispatcher.Invoke(() =>
                             {
-                                TaskBarIcon.Icon = WSSV != null && WSSV.IsListening ? Res.On : Res.Off;
-
                                 onlineIndicator.Source = Res.Green;
                                 online = true;
                             });
@@ -282,8 +283,6 @@ namespace ExchangeRateServer
                         {
                             Dispatcher.Invoke(() =>
                             {
-                                TaskBarIcon.Icon = WSSV != null && WSSV.IsListening ? Res.Connected : Res.Off;
-
                                 onlineIndicator.Source = Res.Red;
                                 online = false;
 
@@ -426,7 +425,7 @@ namespace ExchangeRateServer
                              {
                                  var count = Rates.Count - temp.Count();
 
-                                 Rates = new ObservableCollection<ExchangeRate>(temp);
+                                 Rates = new(temp);
 
                                  Dispatcher.Invoke(() =>
                                  {
@@ -812,14 +811,15 @@ namespace ExchangeRateServer
 
         private void SysLog_Clear(object sender, RoutedEventArgs e) => Dispatcher.Invoke(() => { SystemLog.Text = ""; LBL_SysLog.Content = "Log"; });
 
-        private void MainWindow_Closing(object sender, CancelEventArgs e)
-        {
-            e.Cancel = true;
-            Visibility = Visibility.Hidden;
-        }
-
         // Exit
 
-        private void Quit(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+        private void Application_Exiting(object sender, CancelEventArgs e)
+        {
+            if (MessageBox.Show("Terminate Application?", "Exit", MessageBoxButton.OKCancel, MessageBoxImage.Exclamation) == MessageBoxResult.Cancel)
+            {
+                e.Cancel = true;
+            }
+          
+        }
     }
 }

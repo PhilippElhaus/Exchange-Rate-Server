@@ -168,7 +168,7 @@ namespace ExchangeRateServer
                                                     {
                                                         History_Long[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
 
-                                                        if (DateTime.Now - new TimeSpan(7, 0, 0, 0) > History_Long[(base_currency, quote_currency)][0].Time)
+                                                        if (DateTime.Now - maxAgeLongHistory > History_Long[(base_currency, quote_currency)][0].Time)
                                                         {
                                                             History_Long[(base_currency, quote_currency)].RemoveAt(0);
                                                         }
@@ -181,7 +181,7 @@ namespace ExchangeRateServer
                                                     {
                                                         History_Short[(base_currency, quote_currency)].Add(new TimeData() { Time = DateTime.Now, Rate = (double)exrEntry.Rate });
 
-                                                        if (DateTime.Now - new TimeSpan(1, 0, 0) > History_Short[(base_currency, quote_currency)][0].Time)
+                                                        if (DateTime.Now - maxAgeShortHistory > History_Short[(base_currency, quote_currency)][0].Time)
                                                         {
                                                             History_Short[(base_currency, quote_currency)].RemoveAt(0);
                                                         }

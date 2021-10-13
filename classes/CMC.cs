@@ -152,6 +152,10 @@ namespace ExchangeRateServer
                 {
                     log.Error($"Query unavailable at CMC.");
                 }
+                catch (Exception ex) when (ex.Message.Contains("403"))
+                {
+                    log.Error($"Query unavailable at CMC.");
+                }
                 catch (Exception ex)
                 {
                     log.Error($"CMC Query: {ex.Short()}");
@@ -238,11 +242,26 @@ namespace ExchangeRateServer
                 }
                 catch (Exception ex) when (ex.Message.Contains("400"))
                 {
-                    log.Error($"[{baseCurrency}/{quoteCurrency}] Changes unavailable at CMC.");
+                    var entry = Change_Specific.FirstOrDefault(x => x.Base == baseCurrency && x.Quote == quoteCurrency);
+                    if (entry != default)
+                    {
+                        if (Change_Specific.Remove(entry))
+                        {
+                            log.Error($"[{baseCurrency}/{quoteCurrency}] Changes unavailable at CMC: Removed.");
+                        }
+                        else
+                        {
+                            log.Error($"[{baseCurrency}/{quoteCurrency}] Changes unavailable at CMC.");
+                        }
+                    }
                 }
                 catch (Exception ex) when (ex.Message.Contains("406"))
                 {
-                    log.Error($"[{baseCurrency}/{quoteCurrency}] currently unavailable at CMC.");
+                    log.Error($"[{baseCurrency}/{quoteCurrency}] unavailable at CMC.");
+                }
+                catch (Exception ex) when (ex.Message.Contains("403"))
+                {
+                    log.Error($"[{baseCurrency}/{quoteCurrency}] unavailable at CMC.");
                 }
                 catch (Exception ex)
                 {
