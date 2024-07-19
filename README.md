@@ -4,7 +4,7 @@ Exchange Rate Server for Cryptocurrencies (Using the FREE plans of Fixer.IO API,
 
 <img src="flow.png">
 
-## Built on .NET 5 WPF
+## Built on .NET 8 WPF
 
 The *Exchange Rate Server* casts latest **Rates & Changes (1h, 24h, 7d, 30d)** and on request historic info via a WebSocket server on the network.
 Auto-generates pairs based on the addition of new currencies by manual input or WebSocket request. Casts updates every 3secs.
